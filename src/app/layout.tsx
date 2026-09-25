@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { ClerkProvider } from "@clerk/nextjs";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -14,7 +15,8 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Life & Legacy Journal",
-  description: "Become a better man while building a meaningful life with the people you love.",
+  description:
+    "Become a better man while building a meaningful life with the people you love.",
 };
 
 export default function RootLayout({
@@ -23,10 +25,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        {children}
-      </body>
-    </html>
+    <ClerkProvider>
+      <html lang="en" suppressHydrationWarning>
+        <body
+          className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-(--text)`}
+        >
+          {children}
+        </body>
+      </html>
+    </ClerkProvider>
   );
 }

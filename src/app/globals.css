@@ -1,19 +1,182 @@
 @import "tailwindcss";
 
+/* ============================================================
+   LIFE & LEGACY JOURNAL — Design System
+   Deep Indigo + Sage + Warm Gold + Ivory
+   ============================================================ */
+
 :root {
-  --background: #fafafa;
-  --foreground: #171717;
+  /* Core Brand */
+  --primary: #4338CA;          /* Deep Indigo */
+  --primary-dark: #312E81;     /* Indigo dark */
+  --primary-light: #6366F1;    /* For dark mode accents */
+  --secondary: #6B8E7B;        /* Sage */
+  --growth: #84A98C;           /* Soft Green */
+  --achievement: #D4A72C;      /* Warm Gold */
+
+  /* Backgrounds */
+  --background: #FAF9F6;       /* Warm Ivory */
+  --surface: #FFFFFF;          /* White cards */
+  --surface-elevated: #FFFFFF;
+
+  /* Text */
+  --text: #1F2937;             /* Deep Charcoal */
+  --text-secondary: #6B7280;   /* Slate */
+  --text-muted: #9CA3AF;
+
+  /* Borders & dividers */
+  --border: #E5E7EB;
+  --border-subtle: #F3F4F6;
+
+  /* Semantic */
+  --warning: #D97706;          /* Amber */
+  --attention: #D97777;        /* Soft Coral */
+  --success: #6B8E7B;
+  --danger: #DC2626;
+
+  /* Privacy / Visibility states */
+  --private-bg: #EEF2FF;       /* Soft indigo */
+  --shared-bg: #FFF1F2;        /* Soft rose */
+  --shared-goal-bg: #ECFDF5;   /* Soft sage */
+  --achievement-bg: #FFFBEB;   /* Soft gold */
+
+  /* Life Area Accents */
+  --area-spiritual: #4338CA;
+  --area-marriage: #C9828B;    /* Dusty Rose */
+  --area-financial: #6B8E7B;
+  --area-goals: #4338CA;
+  --area-personal: #4F8A8B;    /* Teal */
+  --area-family: #C98268;      /* Warm Terracotta */
+  --area-learning: #6688A8;    /* Muted Blue */
+  --area-achievements: #D4A72C;
+  --area-habits: #84A98C;
+  --area-journal: #8B7355;     /* Warm Brown */
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.04);
+  --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.06);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.07), 0 2px 4px -2px rgb(0 0 0 / 0.05);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+.dark {
+  --primary: #6366F1;
+  --primary-dark: #4338CA;
+  --primary-light: #818CF8;
+  --secondary: #86A995;
+  --growth: #A3BFA8;
+  --achievement: #E0B84A;
+
+  --background: #111827;
+  --surface: #1F2937;
+  --surface-elevated: #273549;
+
+  --text: #F9FAFB;
+  --text-secondary: #9CA3AF;
+  --text-muted: #6B7280;
+
+  --border: #374151;
+  --border-subtle: #1F2937;
+
+  --private-bg: #1E1B4B;
+  --shared-bg: #3F1F2A;
+  --shared-goal-bg: #142F24;
+  --achievement-bg: #3A2E0A;
+
+  --area-spiritual: #6366F1;
+  --area-marriage: #D4A0A8;
+  --area-financial: #86A995;
+  --area-goals: #6366F1;
+  --area-personal: #6BA3A5;
+  --area-family: #D4A48A;
+  --area-learning: #8BA4C0;
+  --area-achievements: #E0B84A;
+  --area-habits: #A3BFA8;
+  --area-journal: #A89070;
+}
+
+/* Base styles */
+html {
+  scroll-behavior: smooth;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background-color: var(--background);
+  color: var(--text);
+  font-family: var(--font-geist-sans), system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Typography helpers */
+.font-display {
   font-family: var(--font-geist-sans), system-ui, sans-serif;
+  letter-spacing: -0.025em;
+}
+
+/* Utility classes for the design system */
+.bg-background { background-color: var(--background); }
+.bg-surface { background-color: var(--surface); }
+.bg-surface-elevated { background-color: var(--surface-elevated); }
+
+.text-primary { color: var(--primary); }
+.text-secondary { color: var(--text-secondary); }
+.text-muted { color: var(--text-muted); }
+
+.border-subtle { border-color: var(--border); }
+
+.bg-private { background-color: var(--private-bg); }
+.bg-shared { background-color: var(--shared-bg); }
+.bg-shared-goal { background-color: var(--shared-goal-bg); }
+.bg-achievement { background-color: var(--achievement-bg); }
+
+/* Area accent helpers */
+.text-spiritual { color: var(--area-spiritual); }
+.text-marriage { color: var(--area-marriage); }
+.text-financial { color: var(--area-financial); }
+.text-personal { color: var(--area-personal); }
+.text-family { color: var(--area-family); }
+.text-learning { color: var(--area-learning); }
+.text-habits { color: var(--area-habits); }
+.text-journal { color: var(--area-journal); }
+
+.bg-spiritual { background-color: var(--area-spiritual); }
+.bg-marriage { background-color: var(--area-marriage); }
+.bg-financial { background-color: var(--area-financial); }
+.bg-personal { background-color: var(--area-personal); }
+.bg-family { background-color: var(--area-family); }
+.bg-habits { background-color: var(--area-habits); }
+
+/* Progress bars */
+.progress-track {
+  height: 0.5rem;
+  border-radius: 9999px;
+  background-color: var(--border-subtle);
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: 9999px;
+  transition: width 0.5s ease;
+}
+
+/* Soft card */
+.card {
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.card-elevated {
+  background-color: var(--surface-elevated);
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  box-shadow: var(--shadow);
+}
+
+/* Focus ring using primary */
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }
