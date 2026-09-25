@@ -1,0 +1,479 @@
+// prisma/schema.prisma
+// Life & Legacy Journal - Full Database Schema for Neon PostgreSQL
+// Compatible with Prisma 6.x
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  // For Neon, also set DIRECT_URL for migrations if using connection pooling
+  // directUrl = env("DIRECT_URL")
+}
+
+// ============================================================
+// CORE IDENTITY & COUPLE LINKING
+// ============================================================
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  image         String?
+  emailVerified DateTime?
+  role          UserRole  @default(USER)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Profile / Foundation
+  vision        String?   @db.Text
+  mission       String?   @db.Text
+  coreValues    String[]  // e.g. ["Faith", "Integrity", "Family"]
+  personalRules String[]  
+
+  // Relations
+  accounts      Account[]
+  sessions      Session[]
+  coupleAsA     Couple?   @relation("PartnerA")
+  coupleAsB     Couple?   @relation("PartnerB")
+  entries       Entry[]
+  goals         Goal[]
+  lessons       Lesson[]
+  letters       Letter[]
+  media         Media[]
+  reviews       Review[]
+  experiences   Experience[]
+  gratitude     Gratitude[]
+  habits        Habit[]
+  habitLogs     HabitLog[]
+  notifications Notification[]
+
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model Couple {
+  id          String   @id @default(cuid())
+  partnerAId  String   @unique
+  partnerBId  String?  @unique  // null until invitation accepted
+  inviteCode  String?  @unique
+  status      CoupleStatus @default(PENDING)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Shared vision
+  sharedVision      String? @db.Text
+  homeFeeling       String? @db.Text
+  communicationStyle String? @db.Text
+  parentingVision   String? @db.Text
+  sharedDreams      String? @db.Text
+  financialGoals    String? @db.Text
+  spiritualGoals    String? @db.Text
+
+  partnerA User  @relation("PartnerA", fields: [partnerAId], references: [id], onDelete: Cascade)
+  partnerB User? @relation("PartnerB", fields: [partnerBId], references: [id], onDelete: Cascade)
+
+  entries   Entry[]
+  goals     Goal[]
+  letters   Letter[]
+  reviews   Review[]
+
+  @@map("couples")
+}
+
+enum CoupleStatus {
+  PENDING
+  ACTIVE
+  DISSOLVED
+}
+
+// ============================================================
+// JOURNAL ENTRIES (Private / Shared)
+// ============================================================
+
+enum Visibility {
+  PRIVATE
+  SHARED_WITH_PARTNER
+  SHARED_WITH_FAMILY
+}
+
+enum EntryType {
+  DAILY
+  SPIRITUAL
+  MARRIAGE
+  FINANCIAL
+  CAREER
+  BUSINESS
+  EXPERIENCE
+  GRATITUDE
+  REFLECTION
+  OTHER
+}
+
+model Entry {
+  id          String     @id @default(cuid())
+  userId      String
+  coupleId    String?    // only if shared
+  type        EntryType  @default(DAILY)
+  visibility  Visibility @default(PRIVATE)
+  title       String?
+  content     String     @db.Text
+  mood        String?    // optional free text or emoji
+  energy      Int?       // 1-10
+  tags        String[]
+
+  // Structured daily fields (optional)
+  gratitudeItems      String[]
+  accomplishments     String[]
+  spiritualNote       String?  @db.Text
+  marriageNote        String?  @db.Text
+  financialNote       String?  @db.Text
+  lessonOfDay         String?  @db.Text
+  tomorrowPriority    String?
+  prayer              String?  @db.Text
+
+  // AI analysis (written by the system)
+  aiSummary           String?  @db.Text
+  aiAreas             Json?    // { spiritual: "...", marriage: "...", ... }
+  aiSuggestedActions  String[] 
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  couple Couple? @relation(fields: [coupleId], references: [id], onDelete: SetNull)
+  media  Media[]
+
+  @@index([userId, createdAt])
+  @@index([coupleId, createdAt])
+  @@map("entries")
+}
+
+// ============================================================
+// GOALS SYSTEM (Hierarchical + SMART)
+// ============================================================
+
+enum GoalArea {
+  SPIRITUAL
+  MARRIAGE
+  FAMILY
+  FINANCIAL
+  CAREER
+  BUSINESS
+  PERSONAL
+  HEALTH
+  SOCIAL
+  LEARNING
+  SERVICE
+  OTHER
+}
+
+enum GoalType {
+  YES_NO
+  NUMERIC
+  MILESTONE
+  FREQUENCY
+  HABIT
+  QUALITATIVE
+}
+
+enum GoalStatus {
+  ACTIVE
+  ON_TRACK
+  NEEDS_ATTENTION
+  BEHIND
+  COMPLETED
+  ARCHIVED
+  ABANDONED
+}
+
+model Goal {
+  id              String     @id @default(cuid())
+  userId          String
+  coupleId        String?    // if shared goal
+  parentGoalId    String?    // hierarchy: Vision → Annual → Quarterly → Monthly → Weekly
+  area            GoalArea
+  type            GoalType
+  title           String
+  description     String?    @db.Text
+  why             String?    @db.Text   // critical "Why" field
+  targetValue     Float?     // for NUMERIC
+  currentValue    Float?     @default(0)
+  unit            String?    // KES, customers, sessions, etc.
+  frequencyTarget Int?       // e.g. 4 times per week
+  deadline        DateTime?
+  status          GoalStatus @default(ACTIVE)
+  visibility      Visibility @default(PRIVATE)
+  evidenceUrl     String?    // certificate, photo, etc.
+  aiNotes         String?    @db.Text
+  lastReviewedAt  DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  couple     Couple?   @relation(fields: [coupleId], references: [id], onDelete: SetNull)
+  parentGoal Goal?     @relation("GoalHierarchy", fields: [parentGoalId], references: [id])
+  childGoals Goal[]    @relation("GoalHierarchy")
+  milestones Milestone[]
+  actions    Action[]
+  habit      Habit?
+
+  @@index([userId, status])
+  @@index([area, status])
+  @@map("goals")
+}
+
+model Milestone {
+  id          String   @id @default(cuid())
+  goalId      String
+  title       String
+  description String?
+  order       Int      @default(0)
+  completed   Boolean  @default(false)
+  completedAt DateTime?
+  evidenceUrl String?
+
+  goal Goal @relation(fields: [goalId], references: [id], onDelete: Cascade)
+
+  @@map("milestones")
+}
+
+model Action {
+  id          String   @id @default(cuid())
+  goalId      String
+  title       String
+  dueDate     DateTime?
+  completed   Boolean  @default(false)
+  completedAt DateTime?
+  notes       String?
+
+  goal Goal @relation(fields: [goalId], references: [id], onDelete: Cascade)
+
+  @@index([goalId, completed])
+  @@map("actions")
+}
+
+// ============================================================
+// HABITS
+// ============================================================
+
+model Habit {
+  id          String   @id @default(cuid())
+  userId      String
+  goalId      String?  @unique  // optional link to a FREQUENCY/HABIT goal
+  title       String
+  description String?
+  targetPerWeek Int    @default(1)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  goal Goal?     @relation(fields: [goalId], references: [id], onDelete: SetNull)
+  logs HabitLog[]
+
+  @@map("habits")
+}
+
+model HabitLog {
+  id        String   @id @default(cuid())
+  habitId   String
+  userId    String
+  date      DateTime @db.Date
+  completed Boolean  @default(true)
+  notes     String?
+
+  habit Habit @relation(fields: [habitId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([habitId, date])
+  @@map("habit_logs")
+}
+
+// ============================================================
+// EXPERIENCES, LESSONS, LETTERS, GRATITUDE
+// ============================================================
+
+model Experience {
+  id          String   @id @default(cuid())
+  userId      String
+  date        DateTime @default(now())
+  title       String
+  whatHappened String  @db.Text
+  location    String?
+  peopleInvolved String[]
+  feelings    String?
+  outcome     String?  @db.Text
+  lesson      String?  @db.Text
+  wouldDoDifferently String? @db.Text
+  remember    String?  @db.Text
+  tags        String[]
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("experiences")
+}
+
+model Lesson {
+  id        String   @id @default(cuid())
+  userId    String
+  number    Int      // Lesson #001, #002...
+  title     String
+  content   String   @db.Text
+  source    String?  // "Experience", "Failure", "Book", etc.
+  tags      String[]
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, number])
+  @@map("lessons")
+}
+
+model Letter {
+  id          String   @id @default(cuid())
+  userId      String
+  coupleId    String?
+  recipient   String   // "wife", "children", "future-self", "partner"
+  title       String?
+  content     String   @db.Text
+  isSealed    Boolean  @default(false)  // for future delivery
+  openDate    DateTime?
+  visibility  Visibility @default(PRIVATE)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  couple Couple? @relation(fields: [coupleId], references: [id], onDelete: SetNull)
+
+  @@map("letters")
+}
+
+model Gratitude {
+  id        String   @id @default(cuid())
+  userId    String
+  date      DateTime @default(now()) @db.Date
+  items     String[] // the 3 things
+  goodThing String?
+  someone   String?
+  takenForGranted String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
+  @@map("gratitude")
+}
+
+// ============================================================
+// REVIEWS (Weekly / Monthly / Annual)
+// ============================================================
+
+enum ReviewType {
+  WEEKLY
+  MONTHLY
+  ANNUAL
+}
+
+model Review {
+  id          String     @id @default(cuid())
+  userId      String
+  coupleId    String?
+  type        ReviewType
+  periodStart DateTime
+  periodEnd   DateTime
+  content     Json       // flexible structured answers
+  aiSummary   String?    @db.Text
+  createdAt   DateTime   @default(now())
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  couple Couple? @relation(fields: [coupleId], references: [id], onDelete: SetNull)
+
+  @@index([userId, type, periodStart])
+  @@map("reviews")
+}
+
+// ============================================================
+// MEDIA & NOTIFICATIONS
+// ============================================================
+
+model Media {
+  id        String   @id @default(cuid())
+  userId    String
+  entryId   String?
+  url       String
+  type      String   // image, audio, video, document
+  filename  String?
+  size      Int?
+  createdAt DateTime @default(now())
+
+  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  entry Entry? @relation(fields: [entryId], references: [id], onDelete: SetNull)
+
+  @@map("media")
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String   // "partner_support", "goal_reminder", "review_due", etc.
+  title     String
+  body      String
+  data      Json?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read])
+  @@map("notifications")
+}
+
+// ============================================================
+// AI MEMORY / SYSTEM STATE (optional but useful)
+// ============================================================
+
+model AiMemory {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  memory    Json     // editable summary of patterns, preferences, long-term context
+  updatedAt DateTime @updatedAt
+
+  @@map("ai_memory")
+}
