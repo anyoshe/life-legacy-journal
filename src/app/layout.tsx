@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Life & Legacy Journal",
   description:
-    "Become a better man while building a meaningful life with the people you love.",
+    "A private Life Operating System for journaling, setting goals, nurturing relationships, and growing with intention.",
 };
 
 export default function RootLayout({

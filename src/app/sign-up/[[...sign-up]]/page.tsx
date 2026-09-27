@@ -18,7 +18,6 @@ export default function SignUpPage() {
 
         <div className="card-elevated p-2">
           <SignUp
-            forceRedirectUrl="/dashboard"
             fallbackRedirectUrl="/dashboard"
             appearance={{
               elements: {

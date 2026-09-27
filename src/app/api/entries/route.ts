@@ -1,7 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentDbUser } from "@/lib/auth";
+import { getActiveCoupleForUser } from "@/lib/couple-access";
 import { prisma } from "@/lib/prisma";
 import { Visibility, EntryType } from "@prisma/client";
+import { z } from "zod";
+
+const entrySchema = z.object({
+  content: z.string().trim().min(1, "Entry content is required"),
+  visibility: z
+    .enum(["PRIVATE", "SHARED_WITH_PARTNER"])
+    .default("PRIVATE"),
+  gratitudeItems: z.array(z.string()).default([]),
+  accomplishments: z.array(z.string()).default([]),
+  spiritualNote: z.string().optional(),
+  marriageNote: z.string().optional(),
+  financialNote: z.string().optional(),
+  lessonOfDay: z.string().optional(),
+  tomorrowPriority: z.string().optional(),
+  prayer: z.string().optional(),
+  mood: z.string().optional(),
+  energy: z.number().int().min(1).max(10).nullable().optional(),
+}).strict();
 
 export async function POST(req: NextRequest) {
   try {
@@ -11,46 +30,41 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const body = await req.json();
+    let body: unknown;
+    try {
+      body = await req.json();
+    } catch {
+      return NextResponse.json({ error: "Invalid entry details." }, { status: 400 });
+    }
+    const parsed = entrySchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ error: "Invalid entry details." }, { status: 400 });
+    }
 
-    const {
-      content,
-      visibility = "PRIVATE",
-      gratitudeItems = [],
-      accomplishments = [],
-      spiritualNote,
-      marriageNote,
-      financialNote,
-      lessonOfDay,
-      tomorrowPriority,
-      prayer,
-      mood,
-      energy,
-    } = body;
-
-    if (!content || typeof content !== "string" || content.trim().length === 0) {
-      return NextResponse.json(
-        { error: "Entry content is required" },
-        { status: 400 }
-      );
+    const data = parsed.data;
+    const isShared = data.visibility === "SHARED_WITH_PARTNER";
+    const couple = isShared ? await getActiveCoupleForUser(user.id) : null;
+    if (isShared && !couple) {
+      return NextResponse.json({ error: "Link an active partner before sharing an entry." }, { status: 400 });
     }
 
     const entry = await prisma.entry.create({
       data: {
         userId: user.id,
+        coupleId: couple?.id,
         type: EntryType.DAILY,
-        visibility: visibility === "SHARED_WITH_PARTNER" ? Visibility.SHARED_WITH_PARTNER : Visibility.PRIVATE,
-        content: content.trim(),
-        gratitudeItems: Array.isArray(gratitudeItems) ? gratitudeItems.filter(Boolean) : [],
-        accomplishments: Array.isArray(accomplishments) ? accomplishments.filter(Boolean) : [],
-        spiritualNote: spiritualNote?.trim() || null,
-        marriageNote: marriageNote?.trim() || null,
-        financialNote: financialNote?.trim() || null,
-        lessonOfDay: lessonOfDay?.trim() || null,
-        tomorrowPriority: tomorrowPriority?.trim() || null,
-        prayer: prayer?.trim() || null,
-        mood: mood?.trim() || null,
-        energy: typeof energy === "number" ? energy : null,
+        visibility: isShared ? Visibility.SHARED_WITH_PARTNER : Visibility.PRIVATE,
+        content: data.content,
+        gratitudeItems: data.gratitudeItems.filter(Boolean),
+        accomplishments: data.accomplishments.filter(Boolean),
+        spiritualNote: data.spiritualNote?.trim() || null,
+        marriageNote: data.marriageNote?.trim() || null,
+        financialNote: data.financialNote?.trim() || null,
+        lessonOfDay: data.lessonOfDay?.trim() || null,
+        tomorrowPriority: data.tomorrowPriority?.trim() || null,
+        prayer: data.prayer?.trim() || null,
+        mood: data.mood?.trim() || null,
+        energy: data.energy ?? null,
       },
     });
 
@@ -72,11 +86,28 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const entries = await prisma.entry.findMany({
-      where: { userId: user.id },
-      orderBy: { createdAt: "desc" },
-      take: 20,
-    });
+    const couple = await getActiveCoupleForUser(user.id);
+    const [ownedEntries, sharedEntries] = await Promise.all([
+      prisma.entry.findMany({
+        where: { userId: user.id },
+        orderBy: { createdAt: "desc" },
+        take: 20,
+      }),
+      couple
+        ? prisma.entry.findMany({
+            where: {
+              userId: { not: user.id },
+              coupleId: couple.id,
+              visibility: Visibility.SHARED_WITH_PARTNER,
+            },
+            orderBy: { createdAt: "desc" },
+            take: 20,
+          })
+        : Promise.resolve([]),
+    ]);
+    const entries = [...ownedEntries, ...sharedEntries]
+      .sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime())
+      .slice(0, 20);
 
     return NextResponse.json({ entries });
   } catch (error) {

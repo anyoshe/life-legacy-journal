@@ -89,7 +89,7 @@ export default function NewEntryPage() {
             ← Dashboard
           </a>
           <span className="text-sm font-medium text-[var(--text)]">Daily Entry</span>
-          <UserButton afterSignOutUrl="/" />
+          <UserButton />
         </div>
       </header>
 

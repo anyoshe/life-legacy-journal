@@ -44,19 +44,24 @@ DIRECT_URL="postgresql://user:password@ep-xxxx.region.aws.neon.tech/neondb?sslmo
 # CLERK_SECRET_KEY=...
 # NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=...
 
+# Couple invitation email (required to deliver invitation links)
+RESEND_API_KEY=re_...
+EMAIL_FROM="Life & Legacy <invitations@example.com>"
+NEXT_PUBLIC_APP_URL=https://your-application.example
+
 # AI
 OPENAI_API_KEY=sk-...
 # or ANTHROPIC_API_KEY=...
 ```
 
-### 4. Generate Prisma Client & push schema
+### 4. Generate Prisma Client
 
 ```bash
 npx prisma generate
-npx prisma db push
-# or for production migrations later:
-# npx prisma migrate dev --name init
 ```
+
+Use reviewed Prisma migrations to evolve the database. Do not use `prisma db push`
+against a deployed database.
 
 ### 5. Run the app
 
@@ -134,3 +139,30 @@ Just tell me:
 - “Repo is live at https://github.com/…”
 - “Neon is ready”
 and we continue building feature by feature.
+
+## Privacy and Couple Invitations
+
+Journal entries and goals are private by default. Being partners does not grant
+access to private content; only resources explicitly marked as shared with an
+active couple are visible to the other member.
+
+An authenticated user can invite someone by email using
+`POST /api/couples/invitations`. Valid email addresses receive the same generic
+response whether or not the address has a registered account. For registered
+users, the app emails a seven-day, one-time link; the recipient must sign in or
+create an account with that verified email address to accept or reject. The
+email is delivered through Resend, so configure `RESEND_API_KEY`, a verified
+`EMAIL_FROM` sender, and the absolute application origin in `NEXT_PUBLIC_APP_URL`.
+Invitation emails contain no journal or goal content. A couple relationship
+becomes active only after the intended recipient accepts. Personal journal
+entries remain private unless explicitly shared.
+
+Run the API authorization and invitation tests with:
+
+```bash
+npm test
+```
+
+These tests exercise the API handlers with mocked Prisma calls. PostgreSQL
+integration tests are pending until a dedicated isolated test database URL is
+configured; the normal application database is not used for test writes.

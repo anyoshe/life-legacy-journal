@@ -24,6 +24,7 @@ enum UserRole {
 
 model User {
   id            String    @id @default(cuid())
+  clerkId       String?   @unique
   email         String    @unique
   name          String?
   image         String?
@@ -94,6 +95,10 @@ model Couple {
   partnerBId  String?  @unique  // null until invitation accepted
   inviteCode  String?  @unique
   status      CoupleStatus @default(PENDING)
+  inviteeEmail         String?
+  invitationTokenHash  String? @unique
+  invitationExpiresAt  DateTime?
+  invitationStatus     CoupleInvitationStatus?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -121,6 +126,13 @@ enum CoupleStatus {
   PENDING
   ACTIVE
   DISSOLVED
+}
+
+enum CoupleInvitationStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  EXPIRED
 }
 
 // ============================================================
