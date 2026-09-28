@@ -36,41 +36,42 @@ export async function GET() {
   const verifiedEmail = await getCurrentVerifiedEmail();
   if (!verifiedEmail) return NextResponse.json({ error: "A verified email is required." }, { status: 403 });
 
-  const [incoming, outgoing, relationship] = await Promise.all([
-    prisma.couple.findMany({
+  const [emailInvitations, legacyInvitations, outgoing, relationship] = await Promise.all([
+    prisma.coupleInvitation.findMany({
       where: {
-        status: CoupleStatus.PENDING,
-        OR: [
-          { partnerBId: user.id, invitationStatus: null },
-          {
-            inviteeEmail: { equals: verifiedEmail, mode: "insensitive" },
-            invitationStatus: CoupleInvitationStatus.PENDING,
-            invitationExpiresAt: { gt: new Date() },
-          },
-        ],
+        recipientEmail: { equals: verifiedEmail, mode: "insensitive" },
+        status: CoupleInvitationStatus.PENDING,
+        expiresAt: { gt: new Date() },
       },
       select: {
         id: true,
-        partnerBId: true,
-        inviteeEmail: true,
-        invitationStatus: true,
-        invitationExpiresAt: true,
+        recipientEmail: true,
+        status: true,
+        expiresAt: true,
+        createdAt: true,
+        sender: { select: { name: true, email: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.couple.findMany({
+      where: { partnerBId: user.id, status: CoupleStatus.PENDING },
+      select: {
+        id: true,
         createdAt: true,
         partnerA: { select: { name: true, email: true } },
       },
       orderBy: { createdAt: "desc" },
     }),
-    prisma.couple.findMany({
+    prisma.coupleInvitation.findMany({
       where: {
-        partnerAId: user.id,
-        status: CoupleStatus.PENDING,
-        invitationStatus: CoupleInvitationStatus.PENDING,
-        invitationExpiresAt: { gt: new Date() },
+        senderId: user.id,
+        status: CoupleInvitationStatus.PENDING,
+        expiresAt: { gt: new Date() },
       },
       select: {
         id: true,
-        inviteeEmail: true,
-        invitationExpiresAt: true,
+        recipientEmail: true,
+        expiresAt: true,
         createdAt: true,
       },
       orderBy: { createdAt: "desc" },
@@ -84,12 +85,30 @@ export async function GET() {
       select: {
         id: true,
         partnerAId: true,
-        partnerBId: true,
-        partnerA: { select: { name: true, email: true } },
         partnerB: { select: { name: true, email: true } },
+        partnerA: { select: { name: true, email: true } },
       },
     }),
   ]);
+
+  const incoming = [
+    ...emailInvitations.map((invitation) => ({
+      id: invitation.id,
+      inviteeEmail: invitation.recipientEmail,
+      invitationStatus: invitation.status,
+      invitationExpiresAt: invitation.expiresAt,
+      createdAt: invitation.createdAt,
+      partnerA: invitation.sender,
+    })),
+    ...legacyInvitations.map((invitation) => ({
+      id: invitation.id,
+      inviteeEmail: null,
+      invitationStatus: null,
+      invitationExpiresAt: null,
+      createdAt: invitation.createdAt,
+      partnerA: invitation.partnerA,
+    })),
+  ];
 
   const partner = relationship
     ? relationship.partnerAId === user.id
@@ -126,84 +145,89 @@ export async function POST(request: NextRequest) {
   after(async () => {
     try {
       const invitation = await prisma.$transaction(async (tx) => {
-      const invitee = await tx.user.findFirst({
-        where: { email: { equals: email, mode: "insensitive" } },
-        select: { id: true },
-      });
+        const invitee = await tx.user.findFirst({
+          where: { email: { equals: email, mode: "insensitive" } },
+          select: { id: true },
+        });
+        if (!invitee || invitee.id === senderId) return null;
 
-      const pendingFromSender = await tx.couple.findFirst({
-        where: {
-          partnerAId: senderId,
-          status: CoupleStatus.PENDING,
-          OR: [
-            { inviteeEmail: { equals: email, mode: "insensitive" } },
-            ...(invitee ? [{ partnerBId: invitee.id }] : []),
-          ],
-        },
-        select: { id: true },
-      });
+        const existingInvitation = await tx.coupleInvitation.findFirst({
+          where: {
+            senderId,
+            recipientEmail: { equals: email, mode: "insensitive" },
+            status: {
+              in: [
+                CoupleInvitationStatus.PENDING,
+                CoupleInvitationStatus.EXPIRED,
+                CoupleInvitationStatus.REJECTED,
+              ],
+            },
+          },
+          orderBy: { updatedAt: "desc" },
+          select: { id: true },
+        });
 
-      if (pendingFromSender) {
-        return tx.couple.update({
-          where: { id: pendingFromSender.id },
-          data: {
-            inviteeEmail: email,
-            invitationTokenHash: tokenHash,
-            invitationExpiresAt: expiresAt,
-            invitationStatus: CoupleInvitationStatus.PENDING,
+        const activeCouple = await tx.couple.findFirst({
+          where: {
+            status: CoupleStatus.ACTIVE,
+            OR: [
+              { partnerAId: { in: [senderId, invitee.id] } },
+              { partnerBId: { in: [senderId, invitee.id] } },
+            ],
           },
           select: { id: true },
         });
-      }
+        if (activeCouple) return null;
 
-      const conflictClauses: Prisma.CoupleWhereInput[] = [
-        { partnerAId: senderId },
-        { partnerBId: senderId },
-        { inviteeEmail: { equals: email, mode: "insensitive" } },
-      ];
-      if (invitee) {
-        conflictClauses.push(
-          { partnerAId: invitee.id },
-          { partnerBId: invitee.id },
-        );
-      }
+        const pendingConflict = await tx.coupleInvitation.findFirst({
+          where: {
+            id: existingInvitation ? { not: existingInvitation.id } : undefined,
+            status: CoupleInvitationStatus.PENDING,
+            expiresAt: { gt: new Date() },
+            OR: [
+              { senderId: invitee.id },
+              { recipientEmail: { equals: email, mode: "insensitive" } },
+              { recipientEmail: { equals: user.email, mode: "insensitive" } },
+            ],
+          },
+          select: { id: true },
+        });
+        if (pendingConflict) return null;
 
-      const existingRelationship = await tx.couple.findFirst({
-        where: {
-          OR: [
-            { status: CoupleStatus.ACTIVE, OR: conflictClauses },
-            {
-              status: CoupleStatus.PENDING,
-              AND: [
-                { OR: conflictClauses },
-                {
-                  OR: [
-                    { invitationStatus: null },
-                    {
-                      invitationStatus: CoupleInvitationStatus.PENDING,
-                      invitationExpiresAt: { gt: new Date() },
-                    },
-                  ],
-                },
-              ],
+        const legacyPendingConflict = await tx.couple.findFirst({
+          where: {
+            status: CoupleStatus.PENDING,
+            OR: [
+              { partnerAId: { in: [senderId, invitee.id] } },
+              { partnerBId: { in: [senderId, invitee.id] } },
+            ],
+          },
+          select: { id: true },
+        });
+        if (legacyPendingConflict) return null;
+
+        if (existingInvitation) {
+          return tx.coupleInvitation.update({
+            where: { id: existingInvitation.id },
+            data: {
+              tokenHash,
+              expiresAt,
+              status: CoupleInvitationStatus.PENDING,
             },
-          ],
-        },
-        select: { id: true },
-      });
-      if (!invitee || invitee.id === senderId || existingRelationship) return null;
+            select: { id: true },
+          });
+        }
 
-      return tx.couple.create({
-        data: {
-          partnerAId: senderId,
-          inviteeEmail: email,
-          invitationTokenHash: tokenHash,
-          invitationExpiresAt: expiresAt,
-          invitationStatus: CoupleInvitationStatus.PENDING,
-          status: CoupleStatus.PENDING,
-        },
-        select: { id: true },
-      });
+        return tx.coupleInvitation.create({
+          data: {
+            senderId,
+            recipientEmail: email,
+            tokenHash,
+            expiresAt,
+            status: CoupleInvitationStatus.PENDING,
+          },
+          select: { id: true },
+        });
       }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 
       if (invitation) {
@@ -216,15 +240,16 @@ export async function POST(request: NextRequest) {
             expiresAt,
           });
         } catch (error) {
-          await prisma.couple.updateMany({
+          await prisma.coupleInvitation.updateMany({
             where: {
               id: invitation.id,
-              invitationTokenHash: tokenHash,
-              invitationStatus: CoupleInvitationStatus.PENDING,
+              tokenHash,
+              status: CoupleInvitationStatus.PENDING,
             },
             data: {
-              invitationStatus: CoupleInvitationStatus.EXPIRED,
-              invitationExpiresAt: new Date(),
+              status: CoupleInvitationStatus.EXPIRED,
+              tokenHash: null,
+              expiresAt: new Date(),
             },
           });
           console.error("Failed to send Life & Legacy couple invitation email.", error);

@@ -26,17 +26,16 @@ function isPrismaConflict(error: unknown) {
 
 async function findPendingInvitation(token: string) {
   if (!isWellFormedCoupleInvitationToken(token)) return null;
-  return prisma.couple.findFirst({
+  return prisma.coupleInvitation.findFirst({
     where: {
-      invitationTokenHash: hashCoupleInvitationToken(token),
-      invitationStatus: CoupleInvitationStatus.PENDING,
-      status: CoupleStatus.PENDING,
-      invitationExpiresAt: { gt: new Date() },
+      tokenHash: hashCoupleInvitationToken(token),
+      status: CoupleInvitationStatus.PENDING,
+      expiresAt: { gt: new Date() },
     },
     select: {
-      inviteeEmail: true,
-      invitationExpiresAt: true,
-      partnerA: { select: { name: true } },
+      recipientEmail: true,
+      expiresAt: true,
+      sender: { select: { name: true } },
     },
   });
 }
@@ -53,8 +52,8 @@ export async function GET(
 
   return NextResponse.json({
     invitation: {
-      inviterName: invitation.partnerA.name,
-      expiresAt: invitation.invitationExpiresAt,
+      inviterName: invitation.sender.name,
+      expiresAt: invitation.expiresAt,
     },
   });
 }
@@ -88,61 +87,82 @@ export async function POST(
   const tokenHash = hashCoupleInvitationToken(token);
   try {
     const result = await prisma.$transaction(async (tx) => {
-      const invitation = await tx.couple.findFirst({
+      const invitation = await tx.coupleInvitation.findFirst({
         where: {
-          invitationTokenHash: tokenHash,
-          invitationStatus: CoupleInvitationStatus.PENDING,
-          status: CoupleStatus.PENDING,
-          invitationExpiresAt: { gt: new Date() },
+          tokenHash,
+          status: CoupleInvitationStatus.PENDING,
+          expiresAt: { gt: new Date() },
         },
-        select: { id: true, partnerAId: true, inviteeEmail: true },
+        select: {
+          id: true,
+          senderId: true,
+          recipientEmail: true,
+          sender: { select: { email: true } },
+        },
       });
       if (!invitation) {
         throw new TokenInvitationError("This invitation is invalid or has expired.", 404);
       }
       if (
-        !invitation.inviteeEmail ||
-        normalizeInvitationEmail(invitation.inviteeEmail) !== normalizeInvitationEmail(verifiedEmail)
+        normalizeInvitationEmail(invitation.recipientEmail) !== normalizeInvitationEmail(verifiedEmail)
       ) {
         throw new TokenInvitationError("This invitation was sent to a different email address.", 403);
       }
 
       if (parsed.data.decision === "accept") {
-        const conflict = await tx.couple.findFirst({
+        const existingCouple = await tx.couple.findFirst({
           where: {
-            id: { not: invitation.id },
-            status: { in: [CoupleStatus.PENDING, CoupleStatus.ACTIVE] },
             OR: [
-              { partnerAId: { in: [invitation.partnerAId, user.id] } },
-              { partnerBId: { in: [invitation.partnerAId, user.id] } },
-              {
-                inviteeEmail: { equals: verifiedEmail, mode: "insensitive" },
-                invitationStatus: CoupleInvitationStatus.PENDING,
-                invitationExpiresAt: { gt: new Date() },
-              },
+              { partnerAId: { in: [invitation.senderId, user.id] } },
+              { partnerBId: { in: [invitation.senderId, user.id] } },
             ],
           },
           select: { id: true },
         });
-        if (conflict) {
+        if (existingCouple) {
           throw new TokenInvitationError(
-            "One of these users already has a pending or active relationship.",
+            "One of these users already has a couple relationship record.",
             409,
           );
         }
+
+        const otherPendingInvitation = await tx.coupleInvitation.findFirst({
+          where: {
+            id: { not: invitation.id },
+            status: CoupleInvitationStatus.PENDING,
+            expiresAt: { gt: new Date() },
+            OR: [
+              { senderId: { in: [invitation.senderId, user.id] } },
+              { recipientEmail: { equals: invitation.recipientEmail, mode: "insensitive" } },
+              { recipientEmail: { equals: invitation.sender.email, mode: "insensitive" } },
+            ],
+          },
+          select: { id: true },
+        });
+        if (otherPendingInvitation) {
+          throw new TokenInvitationError(
+            "One of these users already has another pending invitation.",
+            409,
+          );
+        }
+
+        await tx.couple.create({
+          data: {
+            partnerAId: invitation.senderId,
+            partnerBId: user.id,
+            status: CoupleStatus.ACTIVE,
+          },
+          select: { id: true },
+        });
       }
 
-      return tx.couple.update({
+      return tx.coupleInvitation.update({
         where: { id: invitation.id },
         data: {
           status: parsed.data.decision === "accept"
-            ? CoupleStatus.ACTIVE
-            : CoupleStatus.DISSOLVED,
-          ...(parsed.data.decision === "accept" ? { partnerBId: user.id } : {}),
-          invitationStatus: parsed.data.decision === "accept"
             ? CoupleInvitationStatus.ACCEPTED
             : CoupleInvitationStatus.REJECTED,
-          invitationTokenHash: null,
+          tokenHash: null,
         },
         select: { id: true, status: true },
       });

@@ -19,6 +19,11 @@ const mocks = vi.hoisted(() => {
       create: vi.fn(),
       update: vi.fn(),
     },
+    coupleInvitation: {
+      findFirst: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
+    },
   };
   const afterCallbacks: Array<() => Promise<void>> = [];
   return {
@@ -34,6 +39,11 @@ const mocks = vi.hoisted(() => {
     prisma: {
       $transaction: vi.fn(),
       couple: {
+        findMany: vi.fn(),
+        findFirst: vi.fn(),
+        create: vi.fn(),
+      },
+      coupleInvitation: {
         findMany: vi.fn(),
         findFirst: vi.fn(),
         updateMany: vi.fn(),
@@ -58,16 +68,14 @@ vi.mock("next/server", async (importOriginal) => {
 
 const token = "A".repeat(43);
 const pendingInvitation = {
-  id: "invite-1",
-  partnerAId: "user-a",
-  partnerBId: null,
-  inviteeEmail: "b@example.test",
-  invitationStatus: "PENDING",
-  invitationTokenHash: hashCoupleInvitationToken(token),
-  invitationExpiresAt: new Date(Date.now() + 60_000),
+  id: "invitation-1",
+  senderId: "user-a",
+  recipientEmail: "b@example.test",
   status: "PENDING",
+  tokenHash: hashCoupleInvitationToken(token),
+  expiresAt: new Date(Date.now() + 60_000),
   createdAt: new Date("2026-09-27T10:00:00Z"),
-  partnerA: { name: "A", email: "a@example.test" },
+  sender: { id: "user-a", name: "A", email: "a@example.test" },
 };
 
 function request(path: string, body?: unknown, method = "POST") {
@@ -97,16 +105,16 @@ describe("couple invitation workflow", () => {
       async (callback: (tx: typeof mocks.tx) => Promise<unknown>) => callback(mocks.tx),
     );
     mocks.tx.user.findFirst.mockResolvedValue({ id: "user-b" });
+    mocks.tx.coupleInvitation.findFirst.mockReset().mockResolvedValue(null);
+    mocks.tx.coupleInvitation.create.mockResolvedValue({ id: pendingInvitation.id });
+    mocks.tx.coupleInvitation.update.mockResolvedValue({ id: pendingInvitation.id });
     mocks.tx.couple.findFirst.mockReset().mockResolvedValue(null);
-    mocks.tx.couple.create.mockResolvedValue({ id: "invite-1" });
-    mocks.tx.couple.update.mockImplementation(async ({ data }: { data: { status: string } }) => ({
-      id: pendingInvitation.id,
-      status: data.status,
-      createdAt: pendingInvitation.createdAt,
-    }));
-    mocks.prisma.couple.findFirst.mockResolvedValue(pendingInvitation);
+    mocks.tx.couple.create.mockResolvedValue({ id: "couple-1" });
     mocks.prisma.couple.findMany.mockResolvedValue([]);
-    mocks.prisma.couple.updateMany.mockResolvedValue({ count: 1 });
+    mocks.prisma.couple.findFirst.mockResolvedValue(null);
+    mocks.prisma.coupleInvitation.findMany.mockResolvedValue([]);
+    mocks.prisma.coupleInvitation.findFirst.mockResolvedValue(pendingInvitation);
+    mocks.prisma.coupleInvitation.updateMany.mockResolvedValue({ count: 1 });
     mocks.getCoupleInvitationUrl.mockReturnValue(`https://example.test/couple/invite/${token}`);
     mocks.sendCoupleInvitationEmail.mockResolvedValue(undefined);
   });
@@ -121,7 +129,7 @@ describe("couple invitation workflow", () => {
     expect(mocks.after).not.toHaveBeenCalled();
   });
 
-  it("returns generic success and emails a secure invitation for a registered email", async () => {
+  it("creates an email invitation and sends a secure link for a registered address", async () => {
     const response = await createInvitation(request("/api/couples/invitations", {
       email: "B@Example.Test",
     }));
@@ -134,17 +142,16 @@ describe("couple invitation workflow", () => {
       where: { email: { equals: "b@example.test", mode: "insensitive" } },
       select: { id: true },
     });
-    expect(mocks.tx.couple.create).toHaveBeenCalledWith(expect.objectContaining({
+    expect(mocks.tx.coupleInvitation.create).toHaveBeenCalledWith(expect.objectContaining({
       data: expect.objectContaining({
-        partnerAId: "user-a",
-        inviteeEmail: "b@example.test",
-        invitationTokenHash: expect.any(String),
-        invitationExpiresAt: expect.any(Date),
-        invitationStatus: "PENDING",
+        senderId: "user-a",
+        recipientEmail: "b@example.test",
+        tokenHash: expect.any(String),
+        expiresAt: expect.any(Date),
         status: "PENDING",
       }),
     }));
-    expect(mocks.tx.couple.create.mock.calls[0][0].data).not.toHaveProperty("partnerBId");
+    expect(mocks.tx.couple.create).not.toHaveBeenCalled();
     expect(mocks.sendCoupleInvitationEmail).toHaveBeenCalledWith(expect.objectContaining({
       to: "b@example.test",
       inviterName: "A",
@@ -155,20 +162,20 @@ describe("couple invitation workflow", () => {
     });
   });
 
-  it("returns identical generic success for an unregistered email but creates no invitation", async () => {
+  it("returns the same generic response for an unregistered address and creates no invitation", async () => {
     mocks.tx.user.findFirst.mockResolvedValue(null);
     const response = await createInvitation(request("/api/couples/invitations", {
       email: "unknown@example.test",
     }));
+
     expect(response.status).toBe(202);
     expect(await response.json()).toEqual({ message: "Invitation request processed." });
-
     await runAfterCallbacks();
-    expect(mocks.tx.couple.create).not.toHaveBeenCalled();
+    expect(mocks.tx.coupleInvitation.create).not.toHaveBeenCalled();
     expect(mocks.sendCoupleInvitationEmail).not.toHaveBeenCalled();
   });
 
-  it("does not create invitations for unauthenticated callers", async () => {
+  it("does not process an invitation for an unauthenticated caller", async () => {
     mocks.getCurrentDbUser.mockResolvedValue(null);
     const response = await createInvitation(request("/api/couples/invitations", {
       email: "b@example.test",
@@ -176,181 +183,230 @@ describe("couple invitation workflow", () => {
 
     expect(response.status).toBe(401);
     expect(mocks.after).not.toHaveBeenCalled();
-    expect(mocks.tx.couple.create).not.toHaveBeenCalled();
+    expect(mocks.tx.coupleInvitation.create).not.toHaveBeenCalled();
   });
 
   it("uses the authenticated database user as sender", async () => {
-    await createInvitation(request("/api/couples/invitations", {
-      email: "b@example.test",
-    }));
+    await createInvitation(request("/api/couples/invitations", { email: "b@example.test" }));
     await runAfterCallbacks();
-
-    expect(mocks.tx.couple.create).toHaveBeenCalledWith(expect.objectContaining({
-      data: expect.objectContaining({ partnerAId: "user-a" }),
+    expect(mocks.tx.coupleInvitation.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ senderId: "user-a" }),
     }));
   });
 
-  it("returns generic success without sending a duplicate pending or active relationship", async () => {
-    mocks.tx.couple.findFirst
-      .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce({ id: "existing" });
-    const response = await createInvitation(request("/api/couples/invitations", {
-      email: "b@example.test",
-    }));
-
-    expect(response.status).toBe(202);
-    expect(await response.json()).toEqual({ message: "Invitation request processed." });
-    await runAfterCallbacks();
-    expect(mocks.tx.couple.create).not.toHaveBeenCalled();
-    expect(mocks.sendCoupleInvitationEmail).not.toHaveBeenCalled();
-  });
-
-  it("only treats unexpired token invitations as pending relationship conflicts", async () => {
-    mocks.tx.couple.findFirst
-      .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce(null);
-    const response = await createInvitation(request("/api/couples/invitations", {
-      email: "b@example.test",
-    }));
+  it("refreshes an existing valid invitation with a new token and expiry", async () => {
+    mocks.tx.coupleInvitation.findFirst.mockResolvedValueOnce({ id: "old-invitation" });
+    await createInvitation(request("/api/couples/invitations", { email: "b@example.test" }));
     await runAfterCallbacks();
 
-    expect(response.status).toBe(202);
-    const conflictQuery = mocks.tx.couple.findFirst.mock.calls[1][0];
-    expect(conflictQuery.where.OR[1].AND[1].OR).toContainEqual(expect.objectContaining({
-      invitationStatus: "PENDING",
-      invitationExpiresAt: expect.objectContaining({ gt: expect.any(Date) }),
+    expect(mocks.tx.coupleInvitation.update).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: "old-invitation" },
+      data: expect.objectContaining({
+        tokenHash: expect.any(String),
+        expiresAt: expect.any(Date),
+        status: "PENDING",
+      }),
     }));
-    expect(mocks.tx.couple.create).toHaveBeenCalled();
+    expect(mocks.tx.coupleInvitation.create).not.toHaveBeenCalled();
+    expect(mocks.sendCoupleInvitationEmail).toHaveBeenCalledOnce();
   });
 
-  it("invalidates the invitation if the email provider fails", async () => {
+  it("reuses a rejected invitation record for a fresh retry", async () => {
+    const oldHash = hashCoupleInvitationToken("B".repeat(43));
+    mocks.tx.coupleInvitation.findFirst.mockResolvedValueOnce({ id: "old-invitation", tokenHash: oldHash });
+    await createInvitation(request("/api/couples/invitations", { email: "b@example.test" }));
+    await runAfterCallbacks();
+
+    expect(mocks.tx.coupleInvitation.update).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: "old-invitation" },
+      data: expect.objectContaining({ status: "PENDING", tokenHash: expect.any(String) }),
+    }));
+    expect(mocks.tx.coupleInvitation.update.mock.calls[0][0].data.tokenHash).not.toBe(oldHash);
+    expect(mocks.tx.coupleInvitation.create).not.toHaveBeenCalled();
+    expect(mocks.sendCoupleInvitationEmail).toHaveBeenCalledOnce();
+  });
+
+  it("reuses an expired invitation record with a fresh expiry and token", async () => {
+    const oldHash = hashCoupleInvitationToken("B".repeat(43));
+    mocks.tx.coupleInvitation.findFirst.mockResolvedValueOnce({ id: "old-invitation", tokenHash: oldHash });
+    await createInvitation(request("/api/couples/invitations", { email: "b@example.test" }));
+    await runAfterCallbacks();
+
+    const refreshed = mocks.tx.coupleInvitation.update.mock.calls[0][0].data;
+    expect(refreshed.status).toBe("PENDING");
+    expect(refreshed.tokenHash).not.toBe(oldHash);
+    expect(refreshed.expiresAt.getTime()).toBeGreaterThan(Date.now());
+    expect(mocks.tx.coupleInvitation.create).not.toHaveBeenCalled();
+  });
+
+  it("keeps a failed delivery retryable while invalidating the failed token", async () => {
     mocks.sendCoupleInvitationEmail.mockRejectedValueOnce(new Error("provider unavailable"));
     const logError = vi.spyOn(console, "error").mockImplementation(() => undefined);
-    const response = await createInvitation(request("/api/couples/invitations", {
-      email: "b@example.test",
-    }));
+    const response = await createInvitation(request("/api/couples/invitations", { email: "b@example.test" }));
     expect(response.status).toBe(202);
     await runAfterCallbacks();
-    expect(mocks.prisma.couple.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+    expect(mocks.prisma.coupleInvitation.updateMany).toHaveBeenCalledWith(expect.objectContaining({
       where: expect.objectContaining({
-        id: "invite-1",
-        invitationStatus: "PENDING",
+        id: pendingInvitation.id,
+        tokenHash: expect.any(String),
+        status: "PENDING",
       }),
       data: expect.objectContaining({
-        invitationStatus: "EXPIRED",
-        invitationExpiresAt: expect.any(Date),
+        status: "EXPIRED",
+        tokenHash: null,
+        expiresAt: expect.any(Date),
       }),
+    }));
+    mocks.tx.coupleInvitation.findFirst.mockReset()
+      .mockResolvedValueOnce({ id: pendingInvitation.id })
+      .mockResolvedValueOnce(null);
+    mocks.tx.couple.findFirst.mockReset().mockResolvedValue(null);
+    await createInvitation(request("/api/couples/invitations", { email: "b@example.test" }));
+    await runAfterCallbacks();
+    expect(mocks.tx.coupleInvitation.update).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: pendingInvitation.id },
+      data: expect.objectContaining({ status: "PENDING", tokenHash: expect.any(String) }),
     }));
     logError.mockRestore();
   });
 
-  it("lists only invitations addressed to the authenticated verified email", async () => {
+  it("does not create invitations for users who already have an active relationship", async () => {
+    mocks.tx.couple.findFirst.mockResolvedValue({ id: "active-couple" });
+    await createInvitation(request("/api/couples/invitations", { email: "b@example.test" }));
+    await runAfterCallbacks();
+
+    expect(mocks.tx.coupleInvitation.create).not.toHaveBeenCalled();
+    expect(mocks.sendCoupleInvitationEmail).not.toHaveBeenCalled();
+  });
+
+  it("lists invitations for the authenticated verified recipient without journal data", async () => {
     mocks.getCurrentDbUser.mockResolvedValue({ id: "user-b", email: "b@example.test" });
     mocks.getCurrentVerifiedEmail.mockResolvedValue("b@example.test");
-    mocks.prisma.couple.findMany.mockResolvedValue([pendingInvitation]);
-    mocks.prisma.couple.findFirst.mockResolvedValue(null);
+    mocks.prisma.coupleInvitation.findMany.mockResolvedValue([pendingInvitation]);
     const response = await listInvitations();
     const body = await response.json();
 
     expect(response.status).toBe(200);
     expect(body.incoming[0]).not.toHaveProperty("content");
-    expect(mocks.prisma.couple.findMany).toHaveBeenCalledWith(expect.objectContaining({
+    expect(mocks.prisma.coupleInvitation.findMany).toHaveBeenCalledWith(expect.objectContaining({
       where: expect.objectContaining({
+        recipientEmail: { equals: "b@example.test", mode: "insensitive" },
         status: "PENDING",
-        OR: expect.arrayContaining([
-          expect.objectContaining({
-            inviteeEmail: { equals: "b@example.test", mode: "insensitive" },
-          }),
-        ]),
-      }),
-      select: expect.objectContaining({
-        id: true,
-        partnerA: { select: { name: true, email: true } },
       }),
     }));
   });
 
-  it("accepts or rejects an ID invitation only when the authenticated verified email is its recipient", async () => {
+  it("accepts the intended invitation and creates an active Couple in one transaction", async () => {
     mocks.getCurrentDbUser.mockResolvedValue({ id: "user-b", email: "b@example.test" });
     mocks.getCurrentVerifiedEmail.mockResolvedValue("b@example.test");
-    mocks.tx.couple.findFirst
-      .mockResolvedValueOnce(pendingInvitation)
-      .mockResolvedValueOnce(null)
+    mocks.tx.coupleInvitation.findFirst
       .mockResolvedValueOnce(pendingInvitation)
       .mockResolvedValueOnce(null);
-
-    const accepted = await respondToInvitation(
-      request("/api/couples/invitations/invite-1", { decision: "accept" }, "PATCH"),
-      { params: Promise.resolve({ invitationId: "invite-1" }) },
+    const response = await respondToTokenInvitation(
+      request(`/api/couples/invitations/token/${token}`, { decision: "accept" }),
+      { params: Promise.resolve({ token }) },
     );
-    expect(accepted.status).toBe(200);
-    expect(mocks.tx.couple.update).toHaveBeenLastCalledWith(expect.objectContaining({
-      where: { id: "invite-1" },
-      data: expect.objectContaining({
-        status: "ACTIVE",
-        partnerBId: "user-b",
-        invitationStatus: "ACCEPTED",
-        invitationTokenHash: null,
-      }),
-    }));
 
-    const rejected = await respondToInvitation(
-      request("/api/couples/invitations/invite-1", { decision: "reject" }, "PATCH"),
-      { params: Promise.resolve({ invitationId: "invite-1" }) },
-    );
-    expect(rejected.status).toBe(200);
-    expect(mocks.tx.couple.update).toHaveBeenLastCalledWith(expect.objectContaining({
-      data: expect.objectContaining({
-        status: "DISSOLVED",
-        partnerBId: null,
-        invitationStatus: "REJECTED",
-        invitationTokenHash: null,
-      }),
+    expect(response.status).toBe(200);
+    expect(mocks.tx.couple.create).toHaveBeenCalledWith({
+      data: { partnerAId: "user-a", partnerBId: "user-b", status: "ACTIVE" },
+      select: { id: true },
+    });
+    expect(mocks.tx.coupleInvitation.update).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: pendingInvitation.id },
+      data: { status: "ACCEPTED", tokenHash: null },
     }));
   });
 
-  it("does not allow a different verified email to use the invitation", async () => {
-    mocks.getCurrentDbUser.mockResolvedValue({ id: "user-b", email: "other@example.test" });
+  it("allows rejection by the intended verified recipient and invalidates the token", async () => {
+    mocks.getCurrentDbUser.mockResolvedValue({ id: "user-b", email: "b@example.test" });
+    mocks.getCurrentVerifiedEmail.mockResolvedValue("b@example.test");
+    mocks.tx.coupleInvitation.findFirst.mockResolvedValue(pendingInvitation);
+    const response = await respondToTokenInvitation(
+      request(`/api/couples/invitations/token/${token}`, { decision: "reject" }),
+      { params: Promise.resolve({ token }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.tx.couple.create).not.toHaveBeenCalled();
+    expect(mocks.tx.coupleInvitation.update).toHaveBeenCalledWith(expect.objectContaining({
+      data: { status: "REJECTED", tokenHash: null },
+    }));
+  });
+
+  it("does not let a different verified email claim the invitation", async () => {
+    mocks.getCurrentDbUser.mockResolvedValue({ id: "user-c", email: "other@example.test" });
     mocks.getCurrentVerifiedEmail.mockResolvedValue("other@example.test");
-    mocks.tx.couple.findFirst.mockResolvedValue(pendingInvitation);
+    mocks.tx.coupleInvitation.findFirst.mockResolvedValue(pendingInvitation);
     const response = await respondToTokenInvitation(
       request(`/api/couples/invitations/token/${token}`, { decision: "accept" }),
       { params: Promise.resolve({ token }) },
     );
 
     expect(response.status).toBe(403);
+    expect(mocks.tx.couple.create).not.toHaveBeenCalled();
+    expect(mocks.tx.coupleInvitation.update).not.toHaveBeenCalled();
+  });
+
+  it("does not let another account accept or reject an invitation by database ID", async () => {
+    mocks.getCurrentDbUser.mockResolvedValue({ id: "user-c", email: "other@example.test" });
+    mocks.getCurrentVerifiedEmail.mockResolvedValue("other@example.test");
+    mocks.tx.coupleInvitation.findFirst.mockResolvedValue(null);
+    mocks.tx.couple.findFirst.mockResolvedValue(null);
+    const response = await respondToInvitation(
+      request("/api/couples/invitations/invitation-1", { decision: "reject" }, "PATCH"),
+      { params: Promise.resolve({ invitationId: pendingInvitation.id }) },
+    );
+
+    expect(response.status).toBe(404);
+    expect(mocks.tx.coupleInvitation.update).not.toHaveBeenCalled();
     expect(mocks.tx.couple.update).not.toHaveBeenCalled();
   });
 
-  it("lets only the intended verified recipient accept a one-time link", async () => {
+  it("does not create a duplicate Couple during acceptance", async () => {
     mocks.getCurrentDbUser.mockResolvedValue({ id: "user-b", email: "b@example.test" });
-    mocks.getCurrentVerifiedEmail.mockResolvedValue("B@Example.Test");
-    mocks.tx.couple.findFirst
-      .mockResolvedValueOnce(pendingInvitation)
-      .mockResolvedValueOnce(null);
-
+    mocks.getCurrentVerifiedEmail.mockResolvedValue("b@example.test");
+    mocks.tx.coupleInvitation.findFirst.mockResolvedValueOnce(pendingInvitation);
+    mocks.tx.couple.findFirst.mockResolvedValueOnce({ id: "existing-couple" });
     const response = await respondToTokenInvitation(
       request(`/api/couples/invitations/token/${token}`, { decision: "accept" }),
       { params: Promise.resolve({ token }) },
     );
-    expect(response.status).toBe(200);
-    expect(mocks.tx.couple.update).toHaveBeenCalledWith(expect.objectContaining({
-      where: { id: "invite-1" },
-      data: expect.objectContaining({
-        status: "ACTIVE",
-        partnerBId: "user-b",
-        invitationStatus: "ACCEPTED",
-        invitationTokenHash: null,
-      }),
-    }));
+
+    expect(response.status).toBe(409);
+    expect(mocks.tx.couple.create).not.toHaveBeenCalled();
+    expect(mocks.tx.coupleInvitation.update).not.toHaveBeenCalled();
   });
 
-  it("rejects expired or consumed invitation links", async () => {
-    mocks.prisma.couple.findFirst.mockResolvedValue(null);
+  it("rejects used or expired invitation tokens", async () => {
+    mocks.prisma.coupleInvitation.findFirst.mockResolvedValue(null);
     const response = await inspectTokenInvitation(
       request(`/api/couples/invitations/token/${token}`, undefined, "GET"),
       { params: Promise.resolve({ token }) },
     );
     expect(response.status).toBe(404);
+  });
+
+  it("supports legacy pending Couple invitations without changing their authorization", async () => {
+    mocks.getCurrentDbUser.mockResolvedValue({ id: "user-b", email: "b@example.test" });
+    mocks.getCurrentVerifiedEmail.mockResolvedValue("b@example.test");
+    mocks.tx.coupleInvitation.findFirst.mockResolvedValueOnce(null);
+    mocks.tx.couple.findFirst
+      .mockResolvedValueOnce({
+      id: "legacy-invitation",
+      partnerAId: "user-a",
+      partnerBId: "user-b",
+      })
+      .mockResolvedValueOnce(null);
+    const response = await respondToInvitation(
+      request("/api/couples/invitations/legacy-invitation", { decision: "accept" }, "PATCH"),
+      { params: Promise.resolve({ invitationId: "legacy-invitation" }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.tx.couple.update).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: "legacy-invitation" },
+      data: { status: "ACTIVE" },
+    }));
   });
 });

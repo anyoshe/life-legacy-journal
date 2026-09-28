@@ -44,6 +44,7 @@ model User {
   sessions      Session[]
   coupleAsA     Couple?   @relation("PartnerA")
   coupleAsB     Couple?   @relation("PartnerB")
+  coupleInvitationsSent CoupleInvitation[] @relation("CoupleInvitationSender")
   entries       Entry[]
   goals         Goal[]
   lessons       Lesson[]
@@ -95,10 +96,6 @@ model Couple {
   partnerBId  String?  @unique  // null until invitation accepted
   inviteCode  String?  @unique
   status      CoupleStatus @default(PENDING)
-  inviteeEmail         String?
-  invitationTokenHash  String? @unique
-  invitationExpiresAt  DateTime?
-  invitationStatus     CoupleInvitationStatus?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -120,6 +117,23 @@ model Couple {
   reviews   Review[]
 
   @@map("couples")
+}
+
+model CoupleInvitation {
+  id             String                @id @default(cuid())
+  senderId       String
+  recipientEmail String
+  tokenHash      String?               @unique
+  expiresAt      DateTime
+  status         CoupleInvitationStatus @default(PENDING)
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+
+  sender User @relation("CoupleInvitationSender", fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([senderId, status])
+  @@index([recipientEmail, status])
+  @@map("couple_invitations")
 }
 
 enum CoupleStatus {
