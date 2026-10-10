@@ -216,6 +216,22 @@ model Entry {
 // GOALS SYSTEM (Hierarchical + SMART)
 // ============================================================
 
+enum GoalAlignment {
+  NONE
+  VISION
+  MISSION
+  VISION_AND_MISSION
+}
+
+enum GoalHorizon {
+  LONG_TERM
+  ANNUAL
+  QUARTERLY
+  MONTHLY
+  WEEKLY
+  DAILY
+}
+
 enum GoalArea {
   SPIRITUAL
   MARRIAGE
@@ -254,7 +270,10 @@ model Goal {
   id              String     @id @default(cuid())
   userId          String
   coupleId        String?    // if shared goal
-  parentGoalId    String?    // hierarchy: Vision → Annual → Quarterly → Monthly → Weekly
+  parentGoalId    String?    // hierarchy: parent → supporting goals
+  horizon         GoalHorizon?
+  alignment       GoalAlignment @default(NONE)
+  alignmentNote   String?    @db.Text  // how this goal serves vision/mission — explicit, never inferred from area alone
   area            GoalArea
   type            GoalType
   title           String
@@ -284,6 +303,8 @@ model Goal {
 
   @@index([userId, status])
   @@index([area, status])
+  @@index([parentGoalId])
+  @@index([userId, parentGoalId])
   @@map("goals")
 }
 

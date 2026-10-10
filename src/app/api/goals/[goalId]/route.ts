@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ActionRecurrence, GoalStatus, GoalType } from "@prisma/client";
+import { ActionRecurrence, GoalAlignment, GoalHorizon, GoalStatus, GoalType } from "@prisma/client";
 import { z } from "zod";
 import { getCurrentDbUser } from "@/lib/auth";
 import { calendarDateOnly } from "@/lib/dates";
@@ -7,6 +7,8 @@ import {
   computeContributionDelta,
   refreshMilestoneProgress,
 } from "@/lib/goal-progress";
+import { validateParentLink } from "@/lib/goal-hierarchy";
+import { refreshRollupChain } from "@/lib/goal-rollup";
 import { prisma } from "@/lib/prisma";
 
 const updateSchema = z
@@ -46,6 +48,10 @@ const updateSchema = z
       .optional(),
     deleteMilestoneId: z.string().min(1).optional(),
     deleteActionId: z.string().min(1).optional(),
+    parentGoalId: z.string().min(1).nullable().optional(),
+    horizon: z.nativeEnum(GoalHorizon).nullable().optional(),
+    alignment: z.nativeEnum(GoalAlignment).optional(),
+    alignmentNote: z.string().trim().max(4000).nullable().optional(),
   })
   .strict();
 
@@ -65,6 +71,23 @@ async function loadGoal(goalId: string, userId: string) {
             take: 1,
           },
         },
+      },
+      parentGoal: {
+        select: { id: true, title: true, horizon: true, status: true },
+      },
+      childGoals: {
+        where: { status: { not: GoalStatus.ARCHIVED } },
+        select: {
+          id: true,
+          title: true,
+          horizon: true,
+          status: true,
+          area: true,
+          currentValue: true,
+          targetValue: true,
+          unit: true,
+        },
+        orderBy: [{ deadline: "asc" }, { createdAt: "desc" }],
       },
     },
   });
@@ -325,6 +348,35 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
   if (data.deadline !== undefined) {
     goalUpdate.deadline = data.deadline ? new Date(data.deadline) : null;
   }
+  if (data.horizon !== undefined) {
+    goalUpdate.horizon = data.horizon;
+  }
+  if (data.alignment !== undefined) {
+    goalUpdate.alignment = data.alignment;
+  }
+  if (data.alignmentNote !== undefined) {
+    goalUpdate.alignmentNote = data.alignmentNote;
+  }
+  if (data.parentGoalId !== undefined) {
+    if (data.parentGoalId === null) {
+      goalUpdate.parentGoalId = null;
+    } else {
+      const check = await validateParentLink({
+        userId: user.id,
+        parentGoalId: data.parentGoalId,
+        goalId: goal.id,
+        childHorizon:
+          data.horizon !== undefined ? data.horizon : (goal as { horizon?: GoalHorizon | null }).horizon ?? null,
+      });
+      if (!check.ok) {
+        return NextResponse.json(
+          { error: check.error },
+          { status: check.status },
+        );
+      }
+      goalUpdate.parentGoalId = check.parentId;
+    }
+  }
 
   if (Object.keys(goalUpdate).length > 0) {
     goalUpdate.lastReviewedAt = new Date();
@@ -354,11 +406,18 @@ export async function DELETE(_request: NextRequest, { params }: RouteContext) {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { goalId } = await params;
+  const existing = await prisma.goal.findFirst({
+    where: { id: goalId, userId: user.id },
+    select: { parentGoalId: true },
+  });
   const deleted = await prisma.goal.deleteMany({
     where: { id: goalId, userId: user.id },
   });
   if (deleted.count === 0) {
     return NextResponse.json({ error: "Goal not found." }, { status: 404 });
+  }
+  if (existing?.parentGoalId) {
+    await refreshRollupChain(existing.parentGoalId, user.id);
   }
 
   return new NextResponse(null, { status: 204 });

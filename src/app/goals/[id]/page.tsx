@@ -11,6 +11,9 @@ import {
   Target,
   Trash2,
 } from "lucide-react";
+import { GoalHierarchyPanel } from "@/components/goals/GoalHierarchyPanel";
+import { GoalAlignmentPanel } from "@/components/goals/GoalAlignmentPanel";
+import { GoalRollupSummary } from "@/components/goals/GoalRollupSummary";
 
 type Milestone = {
   id: string;
@@ -35,6 +38,17 @@ type Action = {
   doneToday?: boolean;
 };
 
+type HierarchyRef = {
+  id: string;
+  title: string;
+  horizon?: string | null;
+  status?: string;
+  area?: string;
+  currentValue?: number | null;
+  targetValue?: number | null;
+  unit?: string | null;
+};
+
 type Goal = {
   id: string;
   title: string;
@@ -47,6 +61,12 @@ type Goal = {
   unit: string | null;
   deadline: string | null;
   status: string;
+  horizon?: string | null;
+  alignment?: string | null;
+  alignmentNote?: string | null;
+  parentGoalId?: string | null;
+  parentGoal?: HierarchyRef | null;
+  childGoals?: HierarchyRef[];
   canEdit: boolean;
   milestones: Milestone[];
   actions: Action[];
@@ -79,6 +99,8 @@ export default function GoalDetailPage() {
   const goalId = params.id;
 
   const [goal, setGoal] = useState<Goal | null>(null);
+  const [foundationVision, setFoundationVision] = useState<string | null>(null);
+  const [foundationMission, setFoundationMission] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -99,7 +121,16 @@ export default function GoalDetailPage() {
       const response = await fetch(`/api/goals/${goalId}`);
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Goal not found.");
-      setGoal(data.goal);
+      setGoal(data.goal)
+        // foundation for alignment context (non-blocking)
+        fetch("/api/foundation")
+          .then((r) => (r.ok ? r.json() : null))
+          .then((f) => {
+            if (!f) return;
+            setFoundationVision(f.foundation?.vision ?? f.vision ?? null);
+            setFoundationMission(f.foundation?.mission ?? f.mission ?? null);
+          })
+          .catch(() => {});
       setCurrentValueInput(
         data.goal.currentValue != null ? String(data.goal.currentValue) : "",
       );
@@ -125,7 +156,16 @@ export default function GoalDetailPage() {
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Update failed.");
-      setGoal(data.goal);
+      setGoal(data.goal)
+        // foundation for alignment context (non-blocking)
+        fetch("/api/foundation")
+          .then((r) => (r.ok ? r.json() : null))
+          .then((f) => {
+            if (!f) return;
+            setFoundationVision(f.foundation?.vision ?? f.vision ?? null);
+            setFoundationMission(f.foundation?.mission ?? f.mission ?? null);
+          })
+          .catch(() => {});
       if (data.goal.currentValue != null) {
         setCurrentValueInput(String(data.goal.currentValue));
       }
@@ -325,6 +365,29 @@ export default function GoalDetailPage() {
             </div>
           )}
         </section>
+
+
+        <GoalAlignmentPanel
+          goalId={goal.id}
+          alignment={goal.alignment}
+          alignmentNote={goal.alignmentNote}
+          vision={foundationVision}
+          mission={foundationMission}
+        />
+
+        <GoalHierarchyPanel
+          goalId={goal.id}
+          parent={goal.parentGoal ?? null}
+          supportingGoals={goal.childGoals ?? []}
+          currentHorizon={goal.horizon}
+        />
+
+        <GoalRollupSummary
+          supportingGoals={goal.childGoals ?? []}
+          parentUnit={goal.unit}
+          parentCurrent={goal.currentValue}
+          parentTarget={goal.targetValue}
+        />
 
         {/* Milestones */}
         <section className="rounded-2xl border border-[var(--border)] bg-surface p-6">

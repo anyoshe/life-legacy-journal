@@ -385,7 +385,7 @@ describe("goal privacy API", () => {
   });
 
   it("returns a user's goals and excludes another user's private goals", async () => {
-    const response = await getGoals();
+    const response = await getGoals(new NextRequest("http://localhost/api/goals"));
     const body = await response.json();
     const ids = body.goals.map((goal: { id: string }) => goal.id);
 
