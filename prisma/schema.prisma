@@ -55,6 +55,7 @@ model User {
   gratitude     Gratitude[]
   habits        Habit[]
   habitLogs     HabitLog[]
+  dreams        Dream[]
   notifications Notification[]
 
   @@map("users")
@@ -301,19 +302,47 @@ model Milestone {
   @@map("milestones")
 }
 
-model Action {
-  id          String   @id @default(cuid())
-  goalId      String
-  title       String
-  dueDate     DateTime?
-  completed   Boolean  @default(false)
-  completedAt DateTime?
-  notes       String?
+enum ActionRecurrence {
+  ONCE
+  DAILY
+  WEEKDAYS
+  WEEKLY
+  CUSTOM_DAYS
+}
 
-  goal Goal @relation(fields: [goalId], references: [id], onDelete: Cascade)
+model Action {
+  id                String           @id @default(cuid())
+  goalId            String
+  title             String
+  dueDate           DateTime?
+  completed         Boolean          @default(false)
+  completedAt       DateTime?
+  notes             String?
+  recurrence        ActionRecurrence @default(ONCE)
+  daysOfWeek        Int[]            @default([])
+  timeOfDay         String?
+  contributionValue Float?
+
+  goal Goal        @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  logs ActionLog[]
 
   @@index([goalId, completed])
   @@map("actions")
+}
+
+model ActionLog {
+  id        String   @id @default(cuid())
+  actionId  String
+  userId    String
+  date      DateTime @db.Date
+  completed Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  action Action @relation(fields: [actionId], references: [id], onDelete: Cascade)
+
+  @@unique([actionId, date])
+  @@index([userId, date])
+  @@map("action_logs")
 }
 
 // ============================================================
@@ -352,6 +381,32 @@ model HabitLog {
   @@unique([habitId, date])
   @@map("habit_logs")
 }
+
+enum DreamKind {
+  DAY_INTENTION
+  NIGHT_DREAM
+}
+
+model Dream {
+  id        String    @id @default(cuid())
+  userId    String
+  kind      DreamKind
+  title     String?
+  content   String    @db.Text
+  date      DateTime  @default(now()) @db.Date
+  feelings  String?
+  meaning   String?   @db.Text
+  tags      String[]  @default([])
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, date])
+  @@index([userId, kind])
+  @@map("dreams")
+}
+
 
 // ============================================================
 // EXPERIENCES, LESSONS, LETTERS, GRATITUDE
