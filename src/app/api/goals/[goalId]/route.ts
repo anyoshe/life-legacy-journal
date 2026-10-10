@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ActionRecurrence, GoalStatus } from "@prisma/client";
+import { ActionRecurrence, GoalStatus, GoalType } from "@prisma/client";
 import { z } from "zod";
 import { getCurrentDbUser } from "@/lib/auth";
-import { applyActionContribution, refreshMilestoneProgress } from "@/lib/goal-progress";
+import { calendarDateOnly } from "@/lib/dates";
+import {
+  computeContributionDelta,
+  refreshMilestoneProgress,
+} from "@/lib/goal-progress";
 import { prisma } from "@/lib/prisma";
 
 const updateSchema = z
@@ -47,12 +51,8 @@ const updateSchema = z
 
 type RouteContext = { params: Promise<{ goalId: string }> };
 
-function todayDateOnly() {
-  const now = new Date();
-  return new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
-}
-
 async function loadGoal(goalId: string, userId: string) {
+  const today = calendarDateOnly();
   return prisma.goal.findFirst({
     where: { id: goalId, userId },
     include: {
@@ -61,7 +61,7 @@ async function loadGoal(goalId: string, userId: string) {
         orderBy: [{ completed: "asc" }, { dueDate: "asc" }],
         include: {
           logs: {
-            where: { date: todayDateOnly() },
+            where: { date: today },
             take: 1,
           },
         },
@@ -78,13 +78,130 @@ export async function GET(_request: NextRequest, { params }: RouteContext) {
   const goal = await loadGoal(goalId, user.id);
   if (!goal) return NextResponse.json({ error: "Goal not found." }, { status: 404 });
 
-  const actions = goal.actions.map((action) => {
-    const isRecurring = action.recurrence !== "ONCE";
-    const doneToday = isRecurring ? (action.logs[0]?.completed ?? false) : action.completed;
+  const rawActions = goal.actions ?? [];
+  const actions = rawActions.map((action) => {
+    const isRecurring = action.recurrence !== ActionRecurrence.ONCE;
+    const logs = "logs" in action ? (action as { logs?: { completed: boolean }[] }).logs : undefined;
+    const doneToday = isRecurring
+      ? (logs?.[0]?.completed ?? false)
+      : action.completed;
     return { ...action, doneToday, logs: undefined };
   });
 
   return NextResponse.json({ goal: { ...goal, actions, canEdit: true } });
+}
+
+/**
+ * Idempotent action completion inside a transaction:
+ * - Recurring: unique (actionId, date) — only contribute on create or true transition
+ * - ONCE: only contribute when completed flag actually flips
+ */
+async function toggleActionIdempotent(options: {
+  goalId: string;
+  userId: string;
+  actionId: string;
+  requestedCompleted: boolean | undefined;
+}) {
+  const { goalId, userId, actionId, requestedCompleted } = options;
+  const today = calendarDateOnly();
+
+  return prisma.$transaction(async (tx) => {
+    const goal = await tx.goal.findFirst({
+      where: { id: goalId, userId },
+    });
+    if (!goal) return { error: "Goal not found." as const, status: 404 };
+
+    const action = await tx.action.findFirst({
+      where: { id: actionId, goalId },
+    });
+    if (!action) return { error: "Action not found." as const, status: 404 };
+
+    const isRecurring = action.recurrence !== ActionRecurrence.ONCE;
+    let transition: "complete" | "undo" | "noop" = "noop";
+
+    if (isRecurring) {
+      const existing = await tx.actionLog.findUnique({
+        where: { actionId_date: { actionId: action.id, date: today } },
+      });
+      const wantComplete = requestedCompleted ?? true;
+
+      if (wantComplete) {
+        if (existing?.completed) {
+          transition = "noop";
+        } else if (existing && !existing.completed) {
+          await tx.actionLog.update({
+            where: { id: existing.id },
+            data: { completed: true },
+          });
+          transition = "complete";
+        } else {
+          await tx.actionLog.create({
+            data: {
+              actionId: action.id,
+              userId,
+              date: today,
+              completed: true,
+            },
+          });
+          transition = "complete";
+        }
+      } else {
+        if (!existing || !existing.completed) {
+          transition = "noop";
+          if (existing && !existing.completed) {
+            await tx.actionLog.delete({ where: { id: existing.id } });
+          }
+        } else {
+          await tx.actionLog.delete({ where: { id: existing.id } });
+          transition = "undo";
+        }
+      }
+    } else {
+      const wasCompleted = action.completed;
+      const nowCompleted = requestedCompleted ?? !action.completed;
+      if (wasCompleted === nowCompleted) {
+        transition = "noop";
+      } else {
+        await tx.action.update({
+          where: { id: action.id },
+          data: {
+            completed: nowCompleted,
+            completedAt: nowCompleted ? new Date() : null,
+          },
+        });
+        transition = nowCompleted ? "complete" : "undo";
+      }
+    }
+
+    if (transition === "noop") {
+      return { transition, goal };
+    }
+
+    // YES_NO: only auto-complete whole goal if ≤1 action on this goal
+    const actionCount = await tx.action.count({ where: { goalId } });
+    const yesNoCompleteGoal =
+      goal.type !== GoalType.YES_NO || actionCount <= 1;
+
+    const pure = computeContributionDelta({
+      goal: {
+        id: goal.id,
+        type: goal.type,
+        currentValue: goal.currentValue,
+        targetValue: goal.targetValue,
+        frequencyTarget: goal.frequencyTarget,
+        status: goal.status,
+      },
+      contributionValue: action.contributionValue,
+      completing: transition === "complete",
+      yesNoCompleteGoal,
+    });
+
+    if (!pure.skipped && Object.keys(pure.data).length > 0) {
+      await tx.goal.update({ where: { id: goal.id }, data: pure.data });
+    }
+
+    return { transition, goal };
+  });
 }
 
 export async function PATCH(request: NextRequest, { params }: RouteContext) {
@@ -104,7 +221,9 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
     return NextResponse.json({ error: "Invalid goal update." }, { status: 400 });
   }
 
-  const goal = await prisma.goal.findFirst({ where: { id: goalId, userId: user.id } });
+  const goal = await prisma.goal.findFirst({
+    where: { id: goalId, userId: user.id },
+  });
   if (!goal) return NextResponse.json({ error: "Goal not found." }, { status: 404 });
 
   const data = parsed.data;
@@ -136,62 +255,27 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
       return NextResponse.json({ error: "Milestone not found." }, { status: 404 });
     }
     const completed = data.completed ?? !milestone.completed;
-    await prisma.milestone.update({
-      where: { id: milestone.id },
-      data: { completed, completedAt: completed ? new Date() : null },
-    });
-    await refreshMilestoneProgress(goalId);
+    if (milestone.completed !== completed) {
+      await prisma.milestone.update({
+        where: { id: milestone.id },
+        data: { completed, completedAt: completed ? new Date() : null },
+      });
+      await refreshMilestoneProgress(goalId);
+    }
   }
 
   if (data.actionId) {
-    const action = await prisma.action.findFirst({
-      where: { id: data.actionId, goalId },
+    const result = await toggleActionIdempotent({
+      goalId,
+      userId: user.id,
+      actionId: data.actionId,
+      requestedCompleted: data.completed,
     });
-    if (!action) {
-      return NextResponse.json({ error: "Action not found." }, { status: 404 });
-    }
-
-    const isRecurring = action.recurrence !== "ONCE";
-
-    if (isRecurring) {
-      const date = todayDateOnly();
-      const completing = data.completed ?? true;
-      if (completing) {
-        await prisma.actionLog.upsert({
-          where: { actionId_date: { actionId: action.id, date } },
-          create: { actionId: action.id, userId: user.id, date, completed: true },
-          update: { completed: true },
-        });
-        await applyActionContribution({
-          goal,
-          contributionValue: action.contributionValue,
-          completing: true,
-        });
-      } else {
-        await prisma.actionLog.deleteMany({ where: { actionId: action.id, date } });
-        await applyActionContribution({
-          goal,
-          contributionValue: action.contributionValue,
-          completing: false,
-        });
-      }
-    } else {
-      const wasCompleted = action.completed;
-      const nowCompleted = data.completed ?? !action.completed;
-      await prisma.action.update({
-        where: { id: action.id },
-        data: {
-          completed: nowCompleted,
-          completedAt: nowCompleted ? new Date() : null,
-        },
-      });
-      if (wasCompleted !== nowCompleted) {
-        await applyActionContribution({
-          goal,
-          contributionValue: action.contributionValue,
-          completing: nowCompleted,
-        });
-      }
+    if ("error" in result && result.error) {
+      return NextResponse.json(
+        { error: result.error },
+        { status: result.status ?? 400 },
+      );
     }
   }
 
@@ -217,7 +301,9 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
         goalId,
         title: data.addAction.title,
         notes: data.addAction.notes || null,
-        dueDate: data.addAction.dueDate ? new Date(data.addAction.dueDate) : null,
+        dueDate: data.addAction.dueDate
+          ? new Date(data.addAction.dueDate)
+          : null,
         recurrence,
         daysOfWeek: data.addAction.daysOfWeek ?? [],
         timeOfDay: data.addAction.timeOfDay || null,
@@ -233,7 +319,8 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
   if (data.currentValue !== undefined) goalUpdate.currentValue = data.currentValue;
   if (data.targetValue !== undefined) goalUpdate.targetValue = data.targetValue;
   if (data.unit !== undefined) goalUpdate.unit = data.unit;
-  if (data.frequencyTarget !== undefined) goalUpdate.frequencyTarget = data.frequencyTarget;
+  if (data.frequencyTarget !== undefined)
+    goalUpdate.frequencyTarget = data.frequencyTarget;
   if (data.status !== undefined) goalUpdate.status = data.status;
   if (data.deadline !== undefined) {
     goalUpdate.deadline = data.deadline ? new Date(data.deadline) : null;
@@ -242,19 +329,20 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
   if (Object.keys(goalUpdate).length > 0) {
     goalUpdate.lastReviewedAt = new Date();
     await prisma.goal.update({ where: { id: goal.id }, data: goalUpdate });
-  } else {
-    await prisma.goal.update({
-      where: { id: goal.id },
-      data: { lastReviewedAt: new Date() },
-    });
   }
 
   const updated = await loadGoal(goal.id, user.id);
-  if (!updated) return NextResponse.json({ error: "Goal not found." }, { status: 404 });
+  if (!updated) {
+    return NextResponse.json({ error: "Goal not found." }, { status: 404 });
+  }
 
-  const actions = updated.actions.map((action) => {
-    const isRecurring = action.recurrence !== "ONCE";
-    const doneToday = isRecurring ? (action.logs[0]?.completed ?? false) : action.completed;
+  const rawActions = updated.actions ?? [];
+  const actions = rawActions.map((action) => {
+    const isRecurring = action.recurrence !== ActionRecurrence.ONCE;
+    const logs = "logs" in action ? (action as { logs?: { completed: boolean }[] }).logs : undefined;
+    const doneToday = isRecurring
+      ? (logs?.[0]?.completed ?? false)
+      : action.completed;
     return { ...action, doneToday, logs: undefined };
   });
 

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ReviewType } from "@prisma/client";
+import { Prisma, ReviewType } from "@prisma/client";
 import { z } from "zod";
 import { getCurrentDbUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -25,6 +25,10 @@ const createSchema = z.object({
   periodEnd: z.string(),
   content: contentSchema,
 });
+
+function asJson(value: unknown): Prisma.InputJsonValue {
+  return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
+}
 
 export async function GET(request: NextRequest) {
   const user = await getCurrentDbUser();
@@ -61,7 +65,10 @@ export async function POST(request: NextRequest) {
 
   const parsed = createSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ error: "Please complete the review fields." }, { status: 400 });
+    return NextResponse.json(
+      { error: "Please complete the review fields." },
+      { status: 400 },
+    );
   }
 
   const data = parsed.data;
@@ -70,6 +77,8 @@ export async function POST(request: NextRequest) {
   if (Number.isNaN(periodStart.getTime()) || Number.isNaN(periodEnd.getTime())) {
     return NextResponse.json({ error: "Invalid review period." }, { status: 400 });
   }
+
+  const contentJson = asJson(data.content);
 
   const existing = await prisma.review.findFirst({
     where: {
@@ -82,7 +91,7 @@ export async function POST(request: NextRequest) {
   if (existing) {
     const review = await prisma.review.update({
       where: { id: existing.id },
-      data: { content: data.content, periodEnd },
+      data: { content: contentJson, periodEnd },
     });
     return NextResponse.json({ review });
   }
@@ -93,7 +102,7 @@ export async function POST(request: NextRequest) {
       type: data.type,
       periodStart,
       periodEnd,
-      content: data.content,
+      content: contentJson,
     },
   });
 

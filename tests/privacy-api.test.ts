@@ -104,6 +104,7 @@ const goalRows = [
     visibility: "PRIVATE",
     title: "B private goal",
     status: "ACTIVE",
+    actions: [],
   },
   {
     id: "goal-b-shared",
@@ -112,6 +113,7 @@ const goalRows = [
     visibility: "SHARED_WITH_PARTNER",
     title: "B shared goal",
     status: "ACTIVE",
+    actions: [],
   },
 ];
 
@@ -126,25 +128,48 @@ function request(path: string, body: unknown, method = "POST") {
 function matchesEntryWhere(
   row: (typeof entryRows)[number],
   where: Record<string, any>,
-) {
-  if (typeof where.userId === "string") return row.userId === where.userId;
-  return (
-    row.userId !== where.userId.not &&
-    row.coupleId === where.coupleId &&
-    row.visibility === where.visibility
-  );
+): boolean {
+  if (!where) return true;
+  if (where.OR && Array.isArray(where.OR)) {
+    return where.OR.some((clause: Record<string, any>) =>
+      matchesEntryWhere(row, clause),
+    );
+  }
+  if (where.AND && Array.isArray(where.AND)) {
+    return where.AND.every((clause: Record<string, any>) =>
+      matchesEntryWhere(row, clause),
+    );
+  }
+  if (typeof where.userId === "string") {
+    if (row.userId !== where.userId) return false;
+  } else if (where.userId && typeof where.userId === "object" && "not" in where.userId) {
+    if (row.userId === where.userId.not) return false;
+  }
+  if (where.coupleId !== undefined && row.coupleId !== where.coupleId) return false;
+  if (where.visibility !== undefined && row.visibility !== where.visibility) return false;
+  if (where.id === "__none__") return false;
+  return true;
 }
 
 function matchesGoalWhere(
   row: (typeof goalRows)[number],
   where: Record<string, any>,
-) {
-  if (typeof where.userId === "string") return row.userId === where.userId;
-  return (
-    row.userId !== where.userId.not &&
-    row.coupleId === where.coupleId &&
-    row.visibility === where.visibility
-  );
+): boolean {
+  if (!where) return true;
+  if (where.OR && Array.isArray(where.OR)) {
+    return where.OR.some((clause: Record<string, any>) =>
+      matchesGoalWhere(row, clause),
+    );
+  }
+  if (typeof where.userId === "string") {
+    if (row.userId !== where.userId) return false;
+  } else if (where.userId && typeof where.userId === "object" && "not" in where.userId) {
+    if (row.userId === where.userId.not) return false;
+  }
+  if (where.coupleId !== undefined && row.coupleId !== where.coupleId) return false;
+  if (where.visibility !== undefined && row.visibility !== where.visibility) return false;
+  if (where.id !== undefined && row.id !== where.id) return false;
+  return true;
 }
 
 describe("entry privacy API", () => {

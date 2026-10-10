@@ -1,14 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getCurrentDbUser } from "@/lib/auth";
+import { calendarDateOnly } from "@/lib/dates";
 import { prisma } from "@/lib/prisma";
 
 type RouteContext = { params: Promise<{ habitId: string }> };
-
-function todayDateOnly() {
-  const now = new Date();
-  return new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
-}
 
 const patchSchema = z
   .object({
@@ -20,15 +16,94 @@ const patchSchema = z
   })
   .strict();
 
+/**
+ * Idempotent habit check-in:
+ * - Completing when a completed log already exists for the date → no progress change
+ * - Completing when no log → create log + contribute once
+ * - Undo when completed log exists → delete log + reverse once
+ * - Undo when no completed log → no progress change
+ */
+async function toggleHabitIdempotent(options: {
+  habitId: string;
+  userId: string;
+  completed: boolean;
+}) {
+  const { habitId, userId, completed } = options;
+  const today = calendarDateOnly();
+
+  return prisma.$transaction(async (tx) => {
+    const habit = await tx.habit.findFirst({
+      where: { id: habitId, userId },
+    });
+    if (!habit) return { error: "Habit not found." as const, status: 404 as const };
+
+    const existing = await tx.habitLog.findUnique({
+      where: { habitId_date: { habitId: habit.id, date: today } },
+    });
+
+    let transition: "complete" | "undo" | "noop" = "noop";
+
+    if (completed) {
+      if (existing?.completed) {
+        transition = "noop";
+      } else if (existing && !existing.completed) {
+        await tx.habitLog.update({
+          where: { id: existing.id },
+          data: { completed: true },
+        });
+        transition = "complete";
+      } else {
+        await tx.habitLog.create({
+          data: {
+            habitId: habit.id,
+            userId,
+            date: today,
+            completed: true,
+          },
+        });
+        transition = "complete";
+      }
+    } else {
+      if (!existing?.completed) {
+        transition = "noop";
+        if (existing) {
+          await tx.habitLog.delete({ where: { id: existing.id } });
+        }
+      } else {
+        await tx.habitLog.delete({ where: { id: existing.id } });
+        transition = "undo";
+      }
+    }
+
+    if (transition !== "noop" && habit.goalId) {
+      const goal = await tx.goal.findFirst({
+        where: { id: habit.goalId, userId },
+      });
+      if (goal) {
+        const current = goal.currentValue ?? 0;
+        const next =
+          transition === "complete"
+            ? current + 1
+            : Math.max(0, current - 1);
+        await tx.goal.update({
+          where: { id: goal.id },
+          data: {
+            currentValue: next,
+            lastReviewedAt: new Date(),
+          },
+        });
+      }
+    }
+
+    return { transition, habit };
+  });
+}
+
 export async function PATCH(request: NextRequest, { params }: RouteContext) {
   const user = await getCurrentDbUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { habitId } = await params;
-  const habit = await prisma.habit.findFirst({
-    where: { id: habitId, userId: user.id },
-  });
-  if (!habit) return NextResponse.json({ error: "Habit not found." }, { status: 404 });
 
   let body: unknown;
   try {
@@ -43,57 +118,27 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
   }
 
   const data = parsed.data;
-  const today = todayDateOnly();
+  const today = calendarDateOnly();
 
   if (data.completed !== undefined) {
-    if (data.completed) {
-      await prisma.habitLog.upsert({
-        where: { habitId_date: { habitId: habit.id, date: today } },
-        create: {
-          habitId: habit.id,
-          userId: user.id,
-          date: today,
-          completed: true,
-        },
-        update: { completed: true },
-      });
-
-      // If linked to a goal, nudge frequency-style progress
-      if (habit.goalId) {
-        const goal = await prisma.goal.findFirst({
-          where: { id: habit.goalId, userId: user.id },
-        });
-        if (goal) {
-          const current = goal.currentValue ?? 0;
-          await prisma.goal.update({
-            where: { id: goal.id },
-            data: {
-              currentValue: current + 1,
-              lastReviewedAt: new Date(),
-            },
-          });
-        }
-      }
-    } else {
-      await prisma.habitLog.deleteMany({
-        where: { habitId: habit.id, date: today },
-      });
-      if (habit.goalId) {
-        const goal = await prisma.goal.findFirst({
-          where: { id: habit.goalId, userId: user.id },
-        });
-        if (goal) {
-          const current = goal.currentValue ?? 0;
-          await prisma.goal.update({
-            where: { id: goal.id },
-            data: {
-              currentValue: Math.max(0, current - 1),
-              lastReviewedAt: new Date(),
-            },
-          });
-        }
-      }
+    const result = await toggleHabitIdempotent({
+      habitId,
+      userId: user.id,
+      completed: data.completed,
+    });
+    if ("error" in result && result.error) {
+      return NextResponse.json(
+        { error: result.error },
+        { status: result.status ?? 404 },
+      );
     }
+  }
+
+  const habitExists = await prisma.habit.findFirst({
+    where: { id: habitId, userId: user.id },
+  });
+  if (!habitExists) {
+    return NextResponse.json({ error: "Habit not found." }, { status: 404 });
   }
 
   const meta: Record<string, unknown> = {};
@@ -102,11 +147,11 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
   if (data.targetPerWeek !== undefined) meta.targetPerWeek = data.targetPerWeek;
   if (data.isActive !== undefined) meta.isActive = data.isActive;
   if (Object.keys(meta).length > 0) {
-    await prisma.habit.update({ where: { id: habit.id }, data: meta });
+    await prisma.habit.update({ where: { id: habitId }, data: meta });
   }
 
   const updated = await prisma.habit.findFirst({
-    where: { id: habit.id },
+    where: { id: habitId },
     include: {
       logs: { where: { date: today }, take: 1 },
       goal: { select: { id: true, title: true, area: true } },
