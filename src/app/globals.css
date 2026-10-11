@@ -1,61 +1,63 @@
 @import "tailwindcss";
 
 /* ============================================================
-   LIFE & LEGACY JOURNAL — Design System
-   Deep Indigo + Sage + Warm Gold + Ivory
+   LIFE & LEGACY JOURNAL — Design System (UI polish)
+   Quietly powerful: Deep Indigo + Sage + Warm Gold + Ivory
    ============================================================ */
 
 :root {
-  /* Core Brand */
-  --primary: #4338CA;          /* Deep Indigo */
-  --primary-dark: #312E81;     /* Indigo dark */
-  --primary-light: #6366F1;    /* For dark mode accents */
-  --secondary: #6B8E7B;        /* Sage */
-  --growth: #84A98C;           /* Soft Green */
-  --achievement: #D4A72C;      /* Warm Gold */
+  --primary: #4338CA;
+  --primary-dark: #312E81;
+  --primary-light: #6366F1;
+  --secondary: #6B8E7B;
+  --growth: #84A98C;
+  --achievement: #D4A72C;
 
-  /* Backgrounds */
-  --background: #FAF9F6;       /* Warm Ivory */
-  --surface: #FFFFFF;          /* White cards */
+  --background: #FAF9F6;
+  --background-soft: #F3F1EC;
+  --surface: #FFFFFF;
   --surface-elevated: #FFFFFF;
+  --surface-tint: #F8F7FF;
 
-  /* Text */
-  --text: #1F2937;             /* Deep Charcoal */
-  --text-secondary: #6B7280;   /* Slate */
+  --text: #1F2937;
+  --text-secondary: #6B7280;
   --text-muted: #9CA3AF;
 
-  /* Borders & dividers */
-  --border: #E5E7EB;
-  --border-subtle: #F3F4F6;
+  --border: #E8E6E1;
+  --border-subtle: #F3F1EC;
 
-  /* Semantic */
-  --warning: #D97706;          /* Amber */
-  --attention: #D97777;        /* Soft Coral */
+  --warning: #D97706;
+  --attention: #D97777;
   --success: #6B8E7B;
   --danger: #DC2626;
 
-  /* Privacy / Visibility states */
-  --private-bg: #EEF2FF;       /* Soft indigo */
-  --shared-bg: #FFF1F2;        /* Soft rose */
-  --shared-goal-bg: #ECFDF5;   /* Soft sage */
-  --achievement-bg: #FFFBEB;   /* Soft gold */
+  --private-bg: #EEF2FF;
+  --shared-bg: #FFF1F2;
+  --shared-goal-bg: #ECFDF5;
+  --achievement-bg: #FFFBEB;
 
-  /* Life Area Accents */
   --area-spiritual: #4338CA;
-  --area-marriage: #C9828B;    /* Dusty Rose */
+  --area-marriage: #C9828B;
   --area-financial: #6B8E7B;
   --area-goals: #4338CA;
-  --area-personal: #4F8A8B;    /* Teal */
-  --area-family: #C98268;      /* Warm Terracotta */
-  --area-learning: #6688A8;    /* Muted Blue */
+  --area-personal: #4F8A8B;
+  --area-family: #C98268;
+  --area-learning: #6688A8;
   --area-achievements: #D4A72C;
   --area-habits: #84A98C;
-  --area-journal: #8B7355;     /* Warm Brown */
+  --area-journal: #8B7355;
 
-  /* Shadows */
-  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.04);
-  --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.06);
-  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.07), 0 2px 4px -2px rgb(0 0 0 / 0.05);
+  --shadow-sm: 0 1px 2px rgb(31 41 55 / 0.04);
+  --shadow: 0 4px 16px -4px rgb(31 41 55 / 0.08), 0 2px 6px -2px rgb(31 41 55 / 0.04);
+  --shadow-md: 0 12px 32px -8px rgb(67 56 202 / 0.12), 0 4px 12px -4px rgb(31 41 55 / 0.06);
+  --shadow-glow: 0 0 0 1px rgb(67 56 202 / 0.08), 0 8px 24px -6px rgb(67 56 202 / 0.18);
+
+  --radius-sm: 0.625rem;
+  --radius: 1rem;
+  --radius-lg: 1.25rem;
+  --radius-xl: 1.5rem;
+
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 
 .dark {
@@ -66,15 +68,17 @@
   --growth: #A3BFA8;
   --achievement: #E0B84A;
 
-  --background: #111827;
-  --surface: #1F2937;
-  --surface-elevated: #273549;
+  --background: #0F1419;
+  --background-soft: #151B23;
+  --surface: #1A222D;
+  --surface-elevated: #232D3B;
+  --surface-tint: #1A1F2E;
 
   --text: #F9FAFB;
   --text-secondary: #9CA3AF;
   --text-muted: #6B7280;
 
-  --border: #374151;
+  --border: #2D3748;
   --border-subtle: #1F2937;
 
   --private-bg: #1E1B4B;
@@ -86,50 +90,64 @@
   --area-marriage: #D4A0A8;
   --area-financial: #86A995;
   --area-goals: #6366F1;
-  --area-personal: #6BA3A5;
-  --area-family: #D4A48A;
-  --area-learning: #8BA4C0;
+  --area-personal: #5BA3A5;
+  --area-family: #D4A088;
+  --area-learning: #7A9BB8;
   --area-achievements: #E0B84A;
   --area-habits: #A3BFA8;
   --area-journal: #A89070;
+
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.3);
+  --shadow: 0 4px 16px -4px rgb(0 0 0 / 0.4);
+  --shadow-md: 0 12px 32px -8px rgb(0 0 0 / 0.5);
+  --shadow-glow: 0 0 0 1px rgb(99 102 241 / 0.2), 0 8px 24px -6px rgb(99 102 241 / 0.25);
 }
 
-/* Base styles */
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-primary: var(--primary);
+  --color-secondary: var(--secondary);
+  --font-sans: var(--font-sans);
+}
+
 html {
   scroll-behavior: smooth;
 }
 
 body {
-  background-color: var(--background);
+  background: var(--background);
   color: var(--text);
-  font-family: var(--font-geist-sans), system-ui, -apple-system, sans-serif;
+  font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Typography helpers */
-.font-display {
-  font-family: var(--font-geist-sans), system-ui, sans-serif;
-  letter-spacing: -0.025em;
+/* Soft page wash — journal paper feel */
+.page-wash {
+  background:
+    radial-gradient(ellipse 80% 50% at 100% -20%, rgb(67 56 202 / 0.07), transparent 50%),
+    radial-gradient(ellipse 60% 40% at 0% 100%, rgb(107 142 123 / 0.08), transparent 45%),
+    radial-gradient(ellipse 40% 30% at 90% 80%, rgb(212 167 44 / 0.05), transparent 40%),
+    var(--background);
 }
 
-/* Utility classes for the design system */
-.bg-background { background-color: var(--background); }
-.bg-surface { background-color: var(--surface); }
-.bg-surface-elevated { background-color: var(--surface-elevated); }
+.dark .page-wash {
+  background:
+    radial-gradient(ellipse 80% 50% at 100% -20%, rgb(99 102 241 / 0.12), transparent 50%),
+    radial-gradient(ellipse 60% 40% at 0% 100%, rgb(134 169 149 / 0.08), transparent 45%),
+    var(--background);
+}
 
 .text-primary { color: var(--primary); }
 .text-secondary { color: var(--text-secondary); }
 .text-muted { color: var(--text-muted); }
-
-.border-subtle { border-color: var(--border); }
 
 .bg-private { background-color: var(--private-bg); }
 .bg-shared { background-color: var(--shared-bg); }
 .bg-shared-goal { background-color: var(--shared-goal-bg); }
 .bg-achievement { background-color: var(--achievement-bg); }
 
-/* Area accent helpers */
 .text-spiritual { color: var(--area-spiritual); }
 .text-marriage { color: var(--area-marriage); }
 .text-financial { color: var(--area-financial); }
@@ -139,14 +157,129 @@ body {
 .text-habits { color: var(--area-habits); }
 .text-journal { color: var(--area-journal); }
 
-.bg-spiritual { background-color: var(--area-spiritual); }
-.bg-marriage { background-color: var(--area-marriage); }
-.bg-financial { background-color: var(--area-financial); }
-.bg-personal { background-color: var(--area-personal); }
-.bg-family { background-color: var(--area-family); }
-.bg-habits { background-color: var(--area-habits); }
+/* Cards */
+.card {
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
 
-/* Progress bars */
+.card:hover {
+  box-shadow: var(--shadow);
+}
+
+.card-elevated {
+  background-color: var(--surface-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+}
+
+.card-interactive {
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow 0.2s ease, border-color 0.2s ease, transform 0.15s ease;
+}
+
+.card-interactive:hover {
+  border-color: rgb(67 56 202 / 0.25);
+  box-shadow: var(--shadow-glow);
+  transform: translateY(-1px);
+}
+
+.dark .card-interactive:hover {
+  border-color: rgb(99 102 241 / 0.35);
+}
+
+/* Buttons */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(180deg, var(--primary-light) 0%, var(--primary) 100%);
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.875rem;
+  padding: 0.625rem 1.25rem;
+  box-shadow: 0 1px 2px rgb(49 46 129 / 0.2), inset 0 1px 0 rgb(255 255 255 / 0.12);
+  transition: filter 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
+}
+
+.btn-primary:hover {
+  filter: brightness(1.05);
+  box-shadow: 0 4px 12px rgb(67 56 202 / 0.3);
+}
+
+.btn-primary:active {
+  transform: scale(0.98);
+}
+
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 600;
+  font-size: 0.875rem;
+  padding: 0.625rem 1.25rem;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.btn-secondary:hover {
+  background: var(--border-subtle);
+  border-color: var(--text-muted);
+}
+
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-weight: 500;
+  font-size: 0.875rem;
+  padding: 0.5rem 0.75rem;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.btn-ghost:hover {
+  color: var(--primary);
+  background: var(--private-bg);
+}
+
+/* Inputs */
+.input-field {
+  width: 100%;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  padding: 0.625rem 0.875rem;
+  font-size: 0.875rem;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.input-field:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgb(67 56 202 / 0.12);
+}
+
+.dark .input-field:focus {
+  box-shadow: 0 0 0 3px rgb(99 102 241 / 0.2);
+}
+
+/* Progress */
 .progress-track {
   height: 0.5rem;
   border-radius: 9999px;
@@ -157,26 +290,88 @@ body {
 .progress-fill {
   height: 100%;
   border-radius: 9999px;
+  background: linear-gradient(90deg, var(--primary), var(--secondary));
   transition: width 0.5s ease;
 }
 
-/* Soft card */
-.card {
-  background-color: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 1rem;
-  box-shadow: var(--shadow-sm);
+.progress-fill-gold {
+  background: linear-gradient(90deg, #E0B84A, var(--achievement));
 }
 
-.card-elevated {
-  background-color: var(--surface-elevated);
-  border: 1px solid var(--border);
-  border-radius: 1rem;
-  box-shadow: var(--shadow);
+.progress-fill-sage {
+  background: linear-gradient(90deg, var(--growth), var(--secondary));
 }
 
-/* Focus ring using primary */
+/* Badges */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  border-radius: 9999px;
+  padding: 0.2rem 0.65rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.badge-indigo {
+  background: var(--private-bg);
+  color: var(--primary);
+}
+
+.badge-sage {
+  background: var(--shared-goal-bg);
+  color: var(--secondary);
+}
+
+.badge-gold {
+  background: var(--achievement-bg);
+  color: #92400E;
+}
+
+.badge-rose {
+  background: var(--shared-bg);
+  color: #9F1239;
+}
+
+.dark .badge-gold {
+  color: var(--achievement);
+}
+
+/* Section eyebrow */
+.eyebrow {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--primary);
+}
+
+/* Soft divider */
+.divider-soft {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--border), transparent);
+}
+
+/* Focus */
 :focus-visible {
   outline: 2px solid var(--primary);
   outline-offset: 2px;
+}
+
+/* Selection */
+::selection {
+  background: rgb(67 56 202 / 0.18);
+  color: var(--text);
+}
+
+/* Mobile bottom safe area for sticky nav */
+.pb-nav {
+  padding-bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px));
+}
+
+@media (min-width: 1280px) {
+  .pb-nav {
+    padding-bottom: 2rem;
+  }
 }

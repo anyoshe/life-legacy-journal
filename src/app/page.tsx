@@ -50,7 +50,7 @@ const capabilities = [
 
 export default function HomePage() {
   return (
-    <main className="min-h-screen overflow-hidden bg-background">
+    <main className="min-h-screen overflow-hidden page-wash">
       <header className="relative z-10">
         <nav aria-label="Main navigation" className="mx-auto flex h-20 max-w-7xl items-center justify-between px-5 sm:px-8">
           <Link href="/" className="text-lg font-semibold tracking-tight text-primary">
@@ -60,7 +60,7 @@ export default function HomePage() {
             <Link href="/sign-in" className="rounded-lg px-3 py-2 text-sm font-medium text-secondary transition-colors hover:text-primary">
               Sign in
             </Link>
-            <Link href="/sign-up" className="rounded-lg bg-[var(--primary)] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[var(--primary-dark)]">
+            <Link href="/sign-up" className="btn-primary">
               Create account
             </Link>
           </div>

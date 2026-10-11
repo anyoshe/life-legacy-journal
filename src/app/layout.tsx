@@ -14,9 +14,12 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Life & Legacy Journal",
+  title: {
+    default: "Life & Legacy Journal",
+    template: "%s · Life & Legacy",
+  },
   description:
-    "A private Life Operating System for journaling, setting goals, nurturing relationships, and growing with intention.",
+    "A private space to journal, grow, and build the life you mean to live — with clarity, calm, and intention.",
 };
 
 export default function RootLayout({
@@ -28,7 +31,7 @@ export default function RootLayout({
     <ClerkProvider>
       <html lang="en" suppressHydrationWarning>
         <body
-          className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-(--text)`}
+          className={`${geistSans.variable} ${geistMono.variable} page-wash min-h-screen antialiased text-[var(--text)]`}
         >
           {children}
         </body>
