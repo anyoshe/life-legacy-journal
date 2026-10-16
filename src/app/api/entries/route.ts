@@ -22,6 +22,7 @@ const entrySchema = z
     mood: z.string().optional(),
     energy: z.number().int().min(1).max(10).nullable().optional(),
     tags: z.array(z.string()).optional(),
+    goalId: z.string().min(1).nullable().optional(),
   })
   .strict();
 
@@ -67,6 +68,17 @@ export async function POST(req: NextRequest) {
     }
 
     const data = parsed.data;
+    let goalId: string | null = data.goalId ?? null;
+    if (goalId) {
+      const goal = await prisma.goal.findFirst({
+        where: { id: goalId, userId: user.id },
+        select: { id: true },
+      });
+      if (!goal) {
+        return NextResponse.json({ error: "Goal not found." }, { status: 404 });
+      }
+    }
+
     const isShared = data.visibility === "SHARED_WITH_PARTNER";
     const couple = isShared ? await getActiveCoupleForUser(user.id) : null;
     if (isShared && !couple) {
@@ -79,6 +91,7 @@ export async function POST(req: NextRequest) {
     const entry = await prisma.entry.create({
       data: {
         userId: user.id,
+        goalId,
         coupleId: couple?.id,
         type: data.type ?? EntryType.DAILY,
         title: data.title?.trim() || null,

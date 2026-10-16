@@ -12,6 +12,8 @@ type Habit = {
   goalId: string | null;
   goal: { id: string; title: string; area: string } | null;
   doneToday: boolean;
+  currentStreak?: number;
+  bestStreak?: number;
 };
 
 type GoalOption = { id: string; title: string; area: string };
@@ -250,6 +252,9 @@ export default function HabitsPage() {
                   </p>
                   <p className="mt-0.5 text-xs text-secondary">
                     {h.targetPerWeek}× / week
+                    {typeof h.currentStreak === "number"
+                      ? ` · streak ${h.currentStreak} (best ${h.bestStreak ?? h.currentStreak})`
+                      : ""}
                     {h.goal ? ` · supports “${h.goal.title}”` : ""}
                     {h.doneToday ? " · done today" : ""}
                   </p>

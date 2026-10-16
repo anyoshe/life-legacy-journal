@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getCurrentDbUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { computeHabitStreaks } from "@/lib/habit-streaks";
+import { calendarDateOnly } from "@/lib/dates";
 
 function todayDateOnly() {
   const now = new Date();
@@ -26,22 +28,44 @@ export async function GET() {
     where: { userId: user.id, isActive: true },
     orderBy: { createdAt: "desc" },
     include: {
-      logs: { where: { date: today }, take: 1 },
+      logs: {
+        where: { completed: true },
+        orderBy: { date: "desc" },
+        take: 120,
+        select: { date: true, completed: true },
+      },
       goal: { select: { id: true, title: true, area: true } },
     },
   });
 
   return NextResponse.json({
-    habits: habits.map((h) => ({
-      id: h.id,
-      title: h.title,
-      description: h.description,
-      targetPerWeek: h.targetPerWeek,
-      goalId: h.goalId,
-      goal: h.goal,
-      doneToday: h.logs[0]?.completed ?? false,
-      createdAt: h.createdAt,
-    })),
+    habits: habits.map((h) => {
+      const streaks = computeHabitStreaks(
+        h.logs.filter((l) => l.completed).map((l) => l.date),
+        today,
+      );
+      const doneToday = h.logs.some((l) => {
+        const d = l.date;
+        return (
+          l.completed &&
+          d.getUTCFullYear() === today.getUTCFullYear() &&
+          d.getUTCMonth() === today.getUTCMonth() &&
+          d.getUTCDate() === today.getUTCDate()
+        );
+      });
+      return {
+        id: h.id,
+        title: h.title,
+        description: h.description,
+        targetPerWeek: h.targetPerWeek,
+        goalId: h.goalId,
+        goal: h.goal,
+        doneToday,
+        currentStreak: streaks.current,
+        bestStreak: streaks.best,
+        createdAt: h.createdAt,
+      };
+    }),
   });
 }
 

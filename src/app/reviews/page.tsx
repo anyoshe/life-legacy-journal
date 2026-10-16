@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowLeft, ArrowRight, CalendarDays, CalendarRange } from "lucide-react";
+import { ArrowLeft, ArrowRight, CalendarDays, CalendarRange, Sparkles } from "lucide-react";
 import { getCurrentDbUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
@@ -69,6 +69,18 @@ export default async function ReviewsPage() {
               <p className="font-semibold text-[var(--text)]">Monthly review</p>
               <p className="mt-1 text-xs text-secondary">
                 Bigger picture, growth areas, next month
+              </p>
+            </div>
+          </Link>
+          <Link
+            href="/reviews/annual"
+            className="card flex items-start gap-3 p-5 hover:border-primary/30 sm:col-span-2"
+          >
+            <Sparkles className="mt-0.5 text-primary" size={20} />
+            <div>
+              <p className="font-semibold text-[var(--text)]">Annual review</p>
+              <p className="mt-1 text-xs text-secondary">
+                Year in your own words — wins, lessons, next-year focus, legacy note
               </p>
             </div>
           </Link>

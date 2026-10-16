@@ -19,6 +19,10 @@ import {
   TodayHabits,
   type TodayHabitItem,
 } from "@/components/dashboard/TodayHabits";
+import {
+  TodayTodos,
+  type TodayTodoItem,
+} from "@/components/dashboard/TodayTodos";
 
 const activeStatuses = new Set<GoalStatus>([
   GoalStatus.ACTIVE,
@@ -47,6 +51,26 @@ function todayDateOnly() {
   return new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
 }
 
+function Quick({
+  href,
+  icon,
+  label,
+}: {
+  href: string;
+  icon: ReactNode;
+  label: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className="card-interactive flex flex-col items-center gap-1.5 p-3 text-center text-xs font-medium text-[var(--text)]"
+    >
+      <span className="text-primary">{icon}</span>
+      {label}
+    </Link>
+  );
+}
+
 export default async function TodayPage() {
   const user = await getCurrentDbUser();
   if (!user) redirect("/sign-in");
@@ -54,7 +78,7 @@ export default async function TodayPage() {
   const today = todayDateOnly();
   const now = new Date();
 
-  const [habits, goals] = await Promise.all([
+  const [habits, goals, todos] = await Promise.all([
     prisma.habit.findMany({
       where: { userId: user.id, isActive: true },
       orderBy: { createdAt: "desc" },
@@ -70,11 +94,22 @@ export default async function TodayPage() {
       include: {
         actions: {
           where: { completed: false },
-          select: { id: true, title: true, completed: true },
-          take: 20,
+          select: {
+            id: true,
+            title: true,
+            completed: true,
+            timeOfDay: true,
+            recurrence: true,
+          },
+          take: 30,
         },
       },
       orderBy: [{ deadline: "asc" }, { createdAt: "desc" }],
+    }),
+    prisma.todo.findMany({
+      where: { userId: user.id, date: today },
+      orderBy: [{ completed: "asc" }, { timeOfDay: "asc" }, { createdAt: "asc" }],
+      include: { goal: { select: { id: true, title: true, area: true } } },
     }),
   ]);
 
@@ -93,17 +128,31 @@ export default async function TodayPage() {
         goalId: goal.id,
         goalTitle: goal.title,
         area: areaLabels[goal.area],
-        title: action.title,
+        title: action.timeOfDay
+          ? `${action.timeOfDay} · ${action.title}`
+          : action.title,
         doneToday: action.completed,
       });
     }
   }
 
+  const todoItems: TodayTodoItem[] = todos.map((t) => ({
+    id: t.id,
+    title: t.title,
+    timeOfDay: t.timeOfDay,
+    completed: t.completed,
+    goalId: t.goalId,
+    goal: t.goal,
+  }));
+
+  const goalOptions = goals.map((g) => ({ id: g.id, title: g.title }));
+
   const habitsDone = habitItems.filter((h) => h.doneToday).length;
   const actionsDone = actionItems.filter((a) => a.doneToday).length;
+  const todosDone = todoItems.filter((t) => t.completed).length;
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="page-wash min-h-screen pb-nav">
       <header className="sticky top-0 z-10 border-b border-[var(--border)] bg-surface/95 backdrop-blur">
         <div className="mx-auto flex h-14 max-w-3xl items-center justify-between px-4">
           <Link
@@ -133,12 +182,12 @@ export default async function TodayPage() {
             Today&apos;s cockpit
           </h1>
           <p className="mt-1 text-sm text-secondary">
-            Check off habits and actions. They feed your goals — and your goals
-            serve your mission and vision.
+            Day list for timed tasks · Actions for goal work · Habits for
+            consistency. Goals still serve vision and mission.
           </p>
           <p className="mt-3 text-xs text-secondary">
-            Habits {habitsDone}/{habitItems.length} · Actions {actionsDone}/
-            {actionItems.length}
+            Todos {todosDone}/{todoItems.length} · Habits {habitsDone}/
+            {habitItems.length} · Actions {actionsDone}/{actionItems.length}
           </p>
         </div>
 
@@ -154,57 +203,31 @@ export default async function TodayPage() {
         </div>
 
         <section>
+          <h2 className="mb-1 text-lg font-semibold text-[var(--text)]">
+            Day list
+          </h2>
+          <p className="mb-3 text-xs text-secondary">
+            Timed to-dos for today. Optional link to a goal. Separate from goal
+            actions so errands stay light.
+          </p>
+          <TodayTodos items={todoItems} goals={goalOptions} />
+        </section>
+
+        <section>
           <h2 className="mb-3 text-lg font-semibold text-[var(--text)]">Habits</h2>
           <TodayHabits items={habitItems} />
         </section>
 
         <section>
-          <h2 className="mb-3 text-lg font-semibold text-[var(--text)]">
-            Open actions
+          <h2 className="mb-1 text-lg font-semibold text-[var(--text)]">
+            Goal actions
           </h2>
-          <TodayActions items={actionItems} />
-        </section>
-
-        <section className="rounded-2xl border border-[var(--border)] bg-surface p-5">
-          <h2 className="text-sm font-semibold text-[var(--text)]">
-            Remember the chain
-          </h2>
-          <p className="mt-2 text-xs leading-5 text-secondary">
-            Today&apos;s check-offs move goals. Goals serve mission and vision.{" "}
-            <Link href="/foundation" className="text-primary">
-              Foundation
-            </Link>
-            {" · "}
-            <Link href="/goals" className="text-primary">
-              Goals
-            </Link>
-            {" · "}
-            <Link href="/dashboard" className="text-primary">
-              Dashboard
-            </Link>
+          <p className="mb-3 text-xs text-secondary">
+            Work that moves a goal. Prefer these for mission-critical progress.
           </p>
+          <TodayActions items={actionItems} />
         </section>
       </main>
     </div>
-  );
-}
-
-function Quick({
-  href,
-  icon,
-  label,
-}: {
-  href: string;
-  icon: ReactNode;
-  label: string;
-}) {
-  return (
-    <Link
-      href={href}
-      className="card flex flex-col items-center gap-2 p-3 text-center text-xs font-medium text-[var(--text)] hover:border-primary/30"
-    >
-      <span className="text-primary">{icon}</span>
-      {label}
-    </Link>
   );
 }
