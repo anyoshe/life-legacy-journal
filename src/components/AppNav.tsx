@@ -6,9 +6,11 @@ import {
   BookMarked,
   BookOpen,
   Compass,
+  Download,
   HeartHandshake,
   Home,
   Mail,
+  Map,
   Moon,
   Sparkles,
   Target,
@@ -29,9 +31,11 @@ const moreLinks = [
   { href: "/foundation", label: "Foundation", icon: Compass },
   { href: "/lessons", label: "Lessons", icon: BookMarked },
   { href: "/letters", label: "Letters", icon: Mail },
+  { href: "/experiences", label: "Experiences", icon: Map },
   { href: "/dreams", label: "Dreams", icon: Moon },
   { href: "/reviews", label: "Reviews", icon: ClipboardList },
   { href: "/couple", label: "Couple", icon: HeartHandshake },
+  { href: "/export", label: "Export", icon: Download },
 ];
 
 function linkActive(pathname: string, href: string) {

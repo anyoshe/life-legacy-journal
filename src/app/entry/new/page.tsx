@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { UserButton } from "@clerk/nextjs";
 
@@ -26,6 +26,29 @@ export default function NewEntryPage() {
   const [tomorrowPriority, setTomorrowPriority] = useState("");
   const [prayer, setPrayer] = useState("");
   const [mood, setMood] = useState("");
+  const [goalId, setGoalId] = useState("");
+  const [goals, setGoals] = useState<{ id: string; title: string; area: string }[]>([]);
+  const [mediaUrl, setMediaUrl] = useState("");
+
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const res = await fetch("/api/goals");
+        if (!res.ok) return;
+        const data = await res.json();
+        setGoals(
+          (data.goals || []).map((g: { id: string; title: string; area: string }) => ({
+            id: g.id,
+            title: g.title,
+            area: g.area,
+          })),
+        );
+      } catch {
+        /* ignore */
+      }
+    })();
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -47,14 +70,26 @@ export default function NewEntryPage() {
           lessonOfDay,
           tomorrowPriority,
           prayer,
-          mood,
+          mood: mood || undefined,
+          goalId: goalId || null,
         }),
       });
 
-      const data = await res.json();
-
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         throw new Error(data.error || "Failed to save entry");
+      }
+
+      if (mediaUrl.trim() && data.entry?.id) {
+        await fetch("/api/media", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            url: mediaUrl.trim(),
+            type: "image",
+            entryId: data.entry.id,
+          }),
+        });
       }
 
       setSuccess(true);
@@ -307,6 +342,42 @@ export default function NewEntryPage() {
                 placeholder="e.g. Grateful, Tired, Hopeful"
                 className="w-full rounded-lg border border-[var(--border)] bg-surface px-4 py-2.5 text-sm text-[var(--text)] placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-primary/30"
               />
+            </div>
+          </div>
+
+
+          <div className="space-y-4 rounded-xl border border-[var(--border)] bg-surface p-4">
+            <div>
+              <label className="block text-sm font-medium text-[var(--text)] mb-2">
+                Reflects on goal (optional)
+              </label>
+              <select
+                value={goalId}
+                onChange={(e) => setGoalId(e.target.value)}
+                className="w-full rounded-lg border border-[var(--border)] bg-background px-3 py-2.5 text-sm text-[var(--text)]"
+              >
+                <option value="">None</option>
+                {goals.map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.area}: {g.title}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-[var(--text)] mb-2">
+                Photo / file URL (optional)
+              </label>
+              <input
+                type="url"
+                value={mediaUrl}
+                onChange={(e) => setMediaUrl(e.target.value)}
+                placeholder="https://…"
+                className="w-full rounded-lg border border-[var(--border)] bg-background px-3 py-2.5 text-sm text-[var(--text)]"
+              />
+              <p className="mt-1 text-xs text-secondary">
+                Paste a public image or file link. Direct device upload can use cloud storage later.
+              </p>
             </div>
           </div>
 
