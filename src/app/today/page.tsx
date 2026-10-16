@@ -1,13 +1,6 @@
 import Link from "next/link";
-import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
-import {
-  ArrowLeft,
-  BookOpen,
-  CalendarDays,
-  Moon,
-  Target,
-} from "lucide-react";
+import { UserButton } from "@clerk/nextjs";
 import { GoalArea, GoalStatus } from "@prisma/client";
 import { getCurrentDbUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -23,6 +16,10 @@ import {
   TodayTodos,
   type TodayTodoItem,
 } from "@/components/dashboard/TodayTodos";
+import { LifeHero } from "@/components/ui/LifeHero";
+import { QuickActions } from "@/components/ui/QuickActions";
+import { FabAdd } from "@/components/ui/FabAdd";
+import { AppShellHeader } from "@/components/AppNav";
 
 const activeStatuses = new Set<GoalStatus>([
   GoalStatus.ACTIVE,
@@ -51,24 +48,11 @@ function todayDateOnly() {
   return new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
 }
 
-function Quick({
-  href,
-  icon,
-  label,
-}: {
-  href: string;
-  icon: ReactNode;
-  label: string;
-}) {
-  return (
-    <Link
-      href={href}
-      className="card-interactive flex flex-col items-center gap-1.5 p-3 text-center text-xs font-medium text-[var(--text)]"
-    >
-      <span className="text-primary">{icon}</span>
-      {label}
-    </Link>
-  );
+function greeting() {
+  const h = new Date().getHours();
+  if (h < 12) return "Good morning";
+  if (h < 17) return "Good afternoon";
+  return "Good evening";
 }
 
 export default async function TodayPage() {
@@ -82,15 +66,10 @@ export default async function TodayPage() {
     prisma.habit.findMany({
       where: { userId: user.id, isActive: true },
       orderBy: { createdAt: "desc" },
-      include: {
-        logs: { where: { date: today }, take: 1 },
-      },
+      include: { logs: { where: { date: today }, take: 1 } },
     }),
     prisma.goal.findMany({
-      where: {
-        userId: user.id,
-        status: { in: [...activeStatuses] },
-      },
+      where: { userId: user.id, status: { in: [...activeStatuses] } },
       include: {
         actions: {
           where: { completed: false },
@@ -99,7 +78,6 @@ export default async function TodayPage() {
             title: true,
             completed: true,
             timeOfDay: true,
-            recurrence: true,
           },
           take: 30,
         },
@@ -146,88 +124,76 @@ export default async function TodayPage() {
   }));
 
   const goalOptions = goals.map((g) => ({ id: g.id, title: g.title }));
-
   const habitsDone = habitItems.filter((h) => h.doneToday).length;
   const actionsDone = actionItems.filter((a) => a.doneToday).length;
   const todosDone = todoItems.filter((t) => t.completed).length;
+  const firstName = user.name?.split(" ")[0] ?? null;
 
   return (
     <div className="page-wash min-h-screen pb-nav">
-      <header className="sticky top-0 z-10 border-b border-[var(--border)] bg-surface/95 backdrop-blur">
-        <div className="mx-auto flex h-14 max-w-3xl items-center justify-between px-4">
-          <Link
-            href="/dashboard"
-            className="inline-flex items-center gap-1.5 text-sm text-secondary hover:text-primary"
-          >
-            <ArrowLeft size={16} /> Dashboard
-          </Link>
-          <span className="text-sm font-medium text-[var(--text)]">Today</span>
-          <Link href="/reviews/weekly" className="text-sm text-primary">
-            Review
-          </Link>
-        </div>
-      </header>
+      <AppShellHeader rightSlot={<UserButton />} />
 
-      <main className="mx-auto max-w-3xl space-y-8 px-4 py-8">
-        <div>
-          <div className="mb-2 inline-flex items-center gap-2 text-xs font-medium text-secondary">
-            <CalendarDays size={14} />
-            {new Intl.DateTimeFormat("en-GB", {
-              weekday: "long",
-              day: "numeric",
-              month: "long",
-            }).format(now)}
+      <main className="mx-auto max-w-3xl space-y-6 px-4 py-6 sm:px-6">
+        <LifeHero
+          greeting={greeting()}
+          name={firstName ? `${firstName}, here is today` : "Here is today"}
+          subtitle={new Intl.DateTimeFormat("en-GB", {
+            weekday: "long",
+            day: "numeric",
+            month: "long",
+          }).format(now)}
+          variant="indigo"
+        >
+          <div className="flex flex-wrap gap-2 text-xs font-medium">
+            <span className="rounded-full bg-white/20 px-3 py-1 backdrop-blur">
+              Todos {todosDone}/{todoItems.length}
+            </span>
+            <span className="rounded-full bg-white/20 px-3 py-1 backdrop-blur">
+              Habits {habitsDone}/{habitItems.length}
+            </span>
+            <span className="rounded-full bg-white/20 px-3 py-1 backdrop-blur">
+              Actions {actionsDone}/{actionItems.length}
+            </span>
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-[var(--text)]">
-            Today&apos;s cockpit
-          </h1>
-          <p className="mt-1 text-sm text-secondary">
-            Day list for timed tasks · Actions for goal work · Habits for
-            consistency. Goals still serve vision and mission.
-          </p>
-          <p className="mt-3 text-xs text-secondary">
-            Todos {todosDone}/{todoItems.length} · Habits {habitsDone}/
-            {habitItems.length} · Actions {actionsDone}/{actionItems.length}
-          </p>
-        </div>
+        </LifeHero>
 
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          <Quick href="/entry/new" icon={<BookOpen size={16} />} label="Journal" />
-          <Quick href="/habits" icon={<Target size={16} />} label="Habits" />
-          <Quick href="/dreams" icon={<Moon size={16} />} label="Dreams" />
-          <Quick
-            href="/reviews/weekly"
-            icon={<CalendarDays size={16} />}
-            label="Weekly review"
-          />
-        </div>
+        <QuickActions compact />
 
-        <section>
-          <h2 className="mb-1 text-lg font-semibold text-[var(--text)]">
-            Day list
-          </h2>
-          <p className="mb-3 text-xs text-secondary">
-            Timed to-dos for today. Optional link to a goal. Separate from goal
-            actions so errands stay light.
-          </p>
+        <section className="card card-tint-sage space-y-3 p-4 sm:p-5">
+          <div className="flex items-center justify-between">
+            <h2 className="text-base font-semibold text-[var(--text)]">Day list</h2>
+            <span className="badge badge-sage">Timed</span>
+          </div>
           <TodayTodos items={todoItems} goals={goalOptions} />
         </section>
 
-        <section>
-          <h2 className="mb-3 text-lg font-semibold text-[var(--text)]">Habits</h2>
+        <section className="card card-tint-indigo space-y-3 p-4 sm:p-5">
+          <div className="flex items-center justify-between">
+            <h2 className="text-base font-semibold text-[var(--text)]">Habits</h2>
+            <Link href="/habits" className="text-xs font-medium text-primary">
+              Manage
+            </Link>
+          </div>
           <TodayHabits items={habitItems} />
         </section>
 
-        <section>
-          <h2 className="mb-1 text-lg font-semibold text-[var(--text)]">
-            Goal actions
-          </h2>
-          <p className="mb-3 text-xs text-secondary">
-            Work that moves a goal. Prefer these for mission-critical progress.
+        <section className="card card-tint-gold space-y-3 p-4 sm:p-5">
+          <div className="flex items-center justify-between">
+            <h2 className="text-base font-semibold text-[var(--text)]">
+              Goal actions
+            </h2>
+            <Link href="/goals" className="text-xs font-medium text-primary">
+              Goals
+            </Link>
+          </div>
+          <p className="text-xs text-secondary">
+            Work that moves your vision forward
           </p>
           <TodayActions items={actionItems} />
         </section>
       </main>
+
+      <FabAdd href="/entry/new" />
     </div>
   );
 }

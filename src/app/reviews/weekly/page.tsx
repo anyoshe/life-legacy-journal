@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { getCurrentDbUser } from "@/lib/auth";
 import { getWeekContext } from "@/lib/week-review";
+import { WeeklyGlance } from "@/components/WeeklyGlance";
 import { WeeklyReviewForm } from "./WeeklyReviewForm";
 
 function fmt(d: Date) {
@@ -25,7 +26,7 @@ export default async function WeeklyReviewPage() {
       : {};
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="page-wash min-h-screen pb-nav">
       <header className="sticky top-0 z-10 border-b border-[var(--border)] bg-surface/95 backdrop-blur">
         <div className="mx-auto flex h-14 max-w-3xl items-center justify-between px-4">
           <Link
@@ -35,40 +36,35 @@ export default async function WeeklyReviewPage() {
             <ArrowLeft size={16} /> Reviews
           </Link>
           <span className="text-sm font-medium text-[var(--text)]">Weekly review</span>
-          <Link href="/dashboard" className="text-sm text-primary">
-            Home
+          <Link href="/summary/weekly" className="text-sm text-primary">
+            Glance only
           </Link>
         </div>
       </header>
 
-      <main className="mx-auto max-w-3xl space-y-6 px-4 py-8">
+      <main className="mx-auto max-w-3xl space-y-8 px-4 py-8">
         <div>
-          <h1 className="text-2xl font-bold text-[var(--text)]">This week</h1>
+          <p className="eyebrow mb-2">This week at a glance</p>
+          <h1 className="text-2xl font-semibold tracking-tight text-[var(--text)]">
+            Weekly summary
+          </h1>
           <p className="mt-1 text-sm text-secondary">
-            {fmt(ctx.periodStart)} – {fmt(ctx.periodEnd)}
-            {existing ? " · editing saved review" : " · new review"}
+            {fmt(ctx.periodStart)} – {fmt(ctx.periodEnd)} · from your data only
+            (not AI)
           </p>
         </div>
 
-        <div className="grid grid-cols-3 gap-3">
-          <div className="card p-4 text-center">
-            <p className="text-2xl font-semibold text-[var(--text)]">
-              {ctx.stats.journalEntries}
-            </p>
-            <p className="text-xs text-secondary">Journal entries</p>
-          </div>
-          <div className="card p-4 text-center">
-            <p className="text-2xl font-semibold text-[var(--text)]">
-              {ctx.stats.habitCheckIns}
-            </p>
-            <p className="text-xs text-secondary">Habit check-ins</p>
-          </div>
-          <div className="card p-4 text-center">
-            <p className="text-2xl font-semibold text-[var(--text)]">
-              {ctx.stats.goalsCompleted}
-            </p>
-            <p className="text-xs text-secondary">Goals completed</p>
-          </div>
+        <WeeklyGlance data={ctx} />
+
+        <div className="divider-soft" />
+
+        <div>
+          <h2 className="text-lg font-semibold text-[var(--text)]">
+            Your written reflection
+          </h2>
+          <p className="mt-1 text-sm text-secondary">
+            Optional notes after you have seen the numbers.
+          </p>
         </div>
 
         <WeeklyReviewForm
