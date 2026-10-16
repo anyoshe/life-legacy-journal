@@ -1,5 +1,8 @@
 "use client";
 
+import { UserButton } from "@clerk/nextjs";
+import { AppShell } from "@/components/layout/AppShell";
+import { PageIntro } from "@/components/ui/PageIntro";
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Lock, Mail, Plus, Trash2 } from "lucide-react";
@@ -107,24 +110,15 @@ export default function LettersPage() {
   }
 
   return (
-    <div className="page-wash min-h-screen pb-nav">
-      <header className="sticky top-0 z-10 border-b border-[var(--border)] bg-surface/95 backdrop-blur">
-        <div className="mx-auto flex h-14 max-w-3xl items-center justify-between px-4">
-          <Link
-            href="/dashboard"
-            className="inline-flex items-center gap-1.5 text-sm text-secondary hover:text-primary"
-          >
-            <ArrowLeft size={16} /> Dashboard
-          </Link>
-          <span className="text-sm font-medium text-[var(--text)]">Letters</span>
-          <Link href="/lessons" className="text-sm text-primary">
-            Lessons
-          </Link>
-        </div>
-      </header>
+    <AppShell rightSlot={<UserButton />}>
+      <main className="mx-auto max-w-3xl space-y-6 px-4 py-8 sm:px-6 pb-8">
+        <PageIntro
+          eyebrow="My Journal"
+          title="Letters"
+          description="Words for those you love — sealed when you choose."
+        />
 
-      <main className="mx-auto max-w-3xl space-y-8 px-4 py-8">
-        <div>
+<div>
           <p className="eyebrow mb-2">Legacy · Marriage</p>
           <h1 className="text-2xl font-semibold tracking-tight text-[var(--text)]">
             Letters
@@ -300,6 +294,6 @@ export default function LettersPage() {
           </ul>
         )}
       </main>
-    </div>
+    </AppShell>
   );
 }

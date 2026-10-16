@@ -1,5 +1,8 @@
 "use client";
 
+import { UserButton } from "@clerk/nextjs";
+import { AppShell } from "@/components/layout/AppShell";
+import { PageIntro } from "@/components/ui/PageIntro";
 import { Suspense, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -158,27 +161,15 @@ function JournalHistoryInner() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-10 border-b border-[var(--border)] bg-surface/95 backdrop-blur">
-        <div className="mx-auto flex h-14 max-w-3xl items-center justify-between px-4">
-          <Link
-            href="/dashboard"
-            className="inline-flex items-center gap-1.5 text-sm text-secondary hover:text-primary"
-          >
-            <ArrowLeft size={16} /> Dashboard
-          </Link>
-          <span className="text-sm font-medium text-[var(--text)]">Journal</span>
-          <Link
-            href="/entry/new"
-            className="rounded-lg bg-[var(--primary)] px-3 py-1.5 text-sm font-semibold text-white hover:bg-[var(--primary-dark)]"
-          >
-            Write
-          </Link>
-        </div>
-      </header>
+    <AppShell rightSlot={<UserButton />}>
+      <main className="mx-auto max-w-3xl space-y-6 px-4 py-8 sm:px-6 pb-8">
+        <PageIntro
+          eyebrow="My Journal"
+          title="Journal"
+          description="Your reflections, private by default."
+        />
 
-      <main className="mx-auto max-w-3xl px-4 py-8">
-        <div className="mb-6">
+<div className="mb-6">
           <h1 className="text-2xl font-bold tracking-tight text-[var(--text)]">Your journal</h1>
           <p className="mt-1 text-sm text-secondary">
             Browse, search, and open past reflections. Private entries stay private.
@@ -391,7 +382,7 @@ function JournalHistoryInner() {
           </div>
         )}
       </main>
-    </div>
+    </AppShell>
   );
 }
 

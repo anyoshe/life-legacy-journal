@@ -1,5 +1,8 @@
 "use client";
 
+import { UserButton } from "@clerk/nextjs";
+import { AppShell } from "@/components/layout/AppShell";
+import { PageIntro } from "@/components/ui/PageIntro";
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Compass, Plus, X } from "lucide-react";
@@ -76,30 +79,21 @@ export default function FoundationPage() {
   if (loading) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-background text-sm text-secondary">
+        <PageIntro
+          eyebrow="My Life"
+          title="Foundation"
+          description="Vision, mission, values, and the principles you will not compromise."
+        />
+
         Loading foundation…
       </main>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-10 border-b border-[var(--border)] bg-surface/95 backdrop-blur">
-        <div className="mx-auto flex h-14 max-w-3xl items-center justify-between px-4">
-          <Link
-            href="/dashboard"
-            className="inline-flex items-center gap-1.5 text-sm text-secondary hover:text-primary"
-          >
-            <ArrowLeft size={16} /> Dashboard
-          </Link>
-          <span className="text-sm font-medium text-[var(--text)]">Foundation</span>
-          <Link href="/goals" className="text-sm text-primary">
-            Goals →
-          </Link>
-        </div>
-      </header>
-
-      <main className="mx-auto max-w-3xl px-4 py-8">
-        <div className="mb-8">
+    <AppShell rightSlot={<UserButton />}>
+      <main className="mx-auto max-w-3xl space-y-6 px-4 py-8 sm:px-6 pb-8">
+<div className="mb-8">
           <div className="mb-2 inline-flex items-center gap-2 text-primary">
             <Compass size={20} />
             <span className="text-xs font-semibold uppercase tracking-wide">Life foundation</span>
@@ -269,7 +263,7 @@ export default function FoundationPage() {
             <button
               type="submit"
               disabled={saving}
-              className="rounded-xl bg-[var(--primary)] px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
+              className="btn-primary disabled:opacity-50"
             >
               {saving ? "Saving…" : "Save foundation"}
             </button>
@@ -282,6 +276,6 @@ export default function FoundationPage() {
           </p>
         )}
       </main>
-    </div>
+    </AppShell>
   );
 }

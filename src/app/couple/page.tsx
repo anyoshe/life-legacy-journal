@@ -1,7 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { UserButton } from "@clerk/nextjs";
+import { AppShell } from "@/components/layout/AppShell";
+import { PageIntro } from "@/components/ui/PageIntro";
+import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 
 type Invitation = {
@@ -96,7 +98,14 @@ export default function CouplePage() {
   }
 
   return (
-    <main className="min-h-screen bg-background">
+    <AppShell rightSlot={<UserButton />}>
+      <main className="mx-auto max-w-3xl space-y-6 px-4 py-8 sm:px-6 pb-8">
+        <PageIntro
+          eyebrow="Together"
+          title="Couple"
+          description="Share the journey only as far as you both choose."
+        />
+
       <header className="border-b border-[var(--border)] bg-surface">
         <div className="mx-auto flex h-16 max-w-3xl items-center justify-between px-4 sm:px-6">
           <Link href="/dashboard" className="text-sm text-secondary hover:text-primary">
@@ -203,5 +212,6 @@ export default function CouplePage() {
         </section>
       </div>
     </main>
+    </AppShell>
   );
 }

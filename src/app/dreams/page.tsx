@@ -1,5 +1,8 @@
 "use client";
 
+import { UserButton } from "@clerk/nextjs";
+import { AppShell } from "@/components/layout/AppShell";
+import { PageIntro } from "@/components/ui/PageIntro";
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Moon, Sun, Trash2 } from "lucide-react";
@@ -97,22 +100,15 @@ export default function DreamsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-10 border-b border-[var(--border)] bg-surface/95 backdrop-blur">
-        <div className="mx-auto flex h-14 max-w-3xl items-center justify-between px-4">
-          <Link
-            href="/dashboard"
-            className="inline-flex items-center gap-1.5 text-sm text-secondary hover:text-primary"
-          >
-            <ArrowLeft size={16} /> Dashboard
-          </Link>
-          <span className="text-sm font-medium text-[var(--text)]">Dreams</span>
-          <span className="w-16" />
-        </div>
-      </header>
+    <AppShell rightSlot={<UserButton />}>
+      <main className="mx-auto max-w-3xl space-y-6 px-4 py-8 sm:px-6 pb-8">
+        <PageIntro
+          eyebrow="My Journal"
+          title="Dreams"
+          description="Day intentions and night dreams that shape you."
+        />
 
-      <main className="mx-auto max-w-3xl space-y-6 px-4 py-8">
-        <div>
+<div>
           <h1 className="text-2xl font-bold text-[var(--text)]">Dreams</h1>
           <p className="mt-1 text-sm leading-6 text-secondary">
             <strong className="text-[var(--text)]">Day intentions</strong> —
@@ -276,6 +272,6 @@ export default function DreamsPage() {
           </ul>
         )}
       </main>
-    </div>
+    </AppShell>
   );
 }

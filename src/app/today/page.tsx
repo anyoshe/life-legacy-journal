@@ -16,10 +16,8 @@ import {
   TodayTodos,
   type TodayTodoItem,
 } from "@/components/dashboard/TodayTodos";
-import { LifeHero } from "@/components/ui/LifeHero";
-import { QuickActions } from "@/components/ui/QuickActions";
-import { FabAdd } from "@/components/ui/FabAdd";
-import { AppShellHeader } from "@/components/AppNav";
+import { AppShell } from "@/components/layout/AppShell";
+import { PageIntro } from "@/components/ui/PageIntro";
 
 const activeStatuses = new Set<GoalStatus>([
   GoalStatus.ACTIVE,
@@ -130,39 +128,27 @@ export default async function TodayPage() {
   const firstName = user.name?.split(" ")[0] ?? null;
 
   return (
-    <div className="page-wash min-h-screen pb-nav">
-      <AppShellHeader rightSlot={<UserButton />} />
-
-      <main className="mx-auto max-w-3xl space-y-6 px-4 py-6 sm:px-6">
-        <LifeHero
-          greeting={greeting()}
-          name={firstName ? `${firstName}, here is today` : "Here is today"}
-          subtitle={new Intl.DateTimeFormat("en-GB", {
+    <AppShell rightSlot={<UserButton />}>
+      <main className="mx-auto max-w-3xl space-y-6 px-4 py-8 sm:px-6">
+        <PageIntro
+          eyebrow={greeting()}
+          title={firstName ? `${firstName}, here is today` : "Today"}
+          description={new Intl.DateTimeFormat("en-GB", {
             weekday: "long",
             day: "numeric",
             month: "long",
           }).format(now)}
-          variant="indigo"
-        >
-          <div className="flex flex-wrap gap-2 text-xs font-medium">
-            <span className="rounded-full bg-white/20 px-3 py-1 backdrop-blur">
-              Todos {todosDone}/{todoItems.length}
-            </span>
-            <span className="rounded-full bg-white/20 px-3 py-1 backdrop-blur">
-              Habits {habitsDone}/{habitItems.length}
-            </span>
-            <span className="rounded-full bg-white/20 px-3 py-1 backdrop-blur">
-              Actions {actionsDone}/{actionItems.length}
-            </span>
-          </div>
-        </LifeHero>
+        />
 
-        <QuickActions compact />
+        <p className="text-xs text-muted">
+          Todos {todosDone}/{todoItems.length} · Habits {habitsDone}/
+          {habitItems.length} · Actions {actionsDone}/{actionItems.length}
+        </p>
 
         <section className="card card-tint-sage space-y-3 p-4 sm:p-5">
           <div className="flex items-center justify-between">
             <h2 className="text-base font-semibold text-[var(--text)]">Day list</h2>
-            <span className="badge badge-sage">Timed</span>
+            <span className="badge badge-sage">Todos</span>
           </div>
           <TodayTodos items={todoItems} goals={goalOptions} />
         </section>
@@ -191,9 +177,13 @@ export default async function TodayPage() {
           </p>
           <TodayActions items={actionItems} />
         </section>
-      </main>
 
-      <FabAdd href="/entry/new" />
-    </div>
+        <p className="text-center text-sm">
+          <Link href="/entry/new" className="font-medium text-primary hover:underline">
+            Write a reflection
+          </Link>
+        </p>
+      </main>
+    </AppShell>
   );
 }

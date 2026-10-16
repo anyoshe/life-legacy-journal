@@ -1,5 +1,8 @@
 "use client";
 
+import { UserButton } from "@clerk/nextjs";
+import { AppShell } from "@/components/layout/AppShell";
+import { PageIntro } from "@/components/ui/PageIntro";
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Check, Plus, Target } from "lucide-react";
@@ -120,7 +123,14 @@ export default function GoalsPage() {
   }
 
   return (
-    <main className="min-h-screen bg-background">
+    <AppShell rightSlot={<UserButton />}>
+      <main className="mx-auto max-w-3xl space-y-6 px-4 py-8 sm:px-6 pb-8">
+        <PageIntro
+          eyebrow="My Life"
+          title="Goals"
+          description="Directions that support your vision — organized by the areas of your life."
+        />
+
       <header className="border-b border-[var(--border)] bg-surface">
         <div className="mx-auto flex h-16 max-w-5xl items-center justify-between px-4 sm:px-6">
           <Link
@@ -352,5 +362,6 @@ export default function GoalsPage() {
         )}
       </div>
     </main>
+    </AppShell>
   );
 }

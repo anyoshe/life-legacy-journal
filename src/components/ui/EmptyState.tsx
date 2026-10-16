@@ -17,9 +17,9 @@ export function EmptyState({
   children?: ReactNode;
 }) {
   return (
-    <div className="flex flex-col items-center px-4 py-10 text-center">
+    <div className="flex flex-col items-center px-4 py-8 text-center">
       {emoji && (
-        <span className="mb-3 text-3xl" aria-hidden>
+        <span className="mb-2 text-3xl" aria-hidden>
           {emoji}
         </span>
       )}
@@ -30,7 +30,7 @@ export function EmptyState({
         </p>
       )}
       {actionHref && actionLabel && (
-        <Link href={actionHref} className="btn-primary mt-5">
+        <Link href={actionHref} className="btn-primary mt-4">
           {actionLabel}
         </Link>
       )}
