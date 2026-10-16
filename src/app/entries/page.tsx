@@ -2,12 +2,12 @@
 
 import { UserButton } from "@clerk/nextjs";
 import { AppShell } from "@/components/layout/AppShell";
+import { MoodCanvas } from "@/components/ui/MoodCanvas";
 import { PageIntro } from "@/components/ui/PageIntro";
 import { Suspense, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
-  ArrowLeft,
   BookOpen,
   ChevronLeft,
   ChevronRight,
@@ -162,19 +162,18 @@ function JournalHistoryInner() {
 
   return (
     <AppShell rightSlot={<UserButton />}>
-      <main className="mx-auto max-w-3xl space-y-6 px-4 py-8 sm:px-6 pb-8">
+      <MoodCanvas mood="journal">
+      <main className="mx-auto max-w-6xl space-y-6 px-4 py-8 pb-8 sm:px-6 lg:px-8">
         <PageIntro
-          eyebrow="My Journal"
+          eyebrow="Your personal archive"
           title="Journal"
-          description="Your reflections, private by default."
+          description="Browse, search, and rediscover past reflections. Private by default."
+          action={
+            <Link href="/entry/new" className="btn-primary">
+              Write an entry
+            </Link>
+          }
         />
-
-<div className="mb-6">
-          <h1 className="text-2xl font-bold tracking-tight text-[var(--text)]">Your journal</h1>
-          <p className="mt-1 text-sm text-secondary">
-            Browse, search, and open past reflections. Private entries stay private.
-          </p>
-        </div>
 
         <form
           onSubmit={applyFilters}
@@ -298,15 +297,9 @@ function JournalHistoryInner() {
             <p className="mt-1 text-sm text-secondary">
               Write a reflection, or clear filters to see your history.
             </p>
-            <Link
-              href="/entry/new"
-              className="mt-4 inline-flex rounded-lg bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-white"
-            >
-              New entry
-            </Link>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="grid gap-3 md:grid-cols-2">
             {entries.map((entry) => (
               <Link
                 key={entry.id}
@@ -382,6 +375,7 @@ function JournalHistoryInner() {
           </div>
         )}
       </main>
+      </MoodCanvas>
     </AppShell>
   );
 }

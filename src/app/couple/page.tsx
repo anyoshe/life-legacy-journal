@@ -2,8 +2,8 @@
 
 import { UserButton } from "@clerk/nextjs";
 import { AppShell } from "@/components/layout/AppShell";
+import { MoodCanvas } from "@/components/ui/MoodCanvas";
 import { PageIntro } from "@/components/ui/PageIntro";
-import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 
 type Invitation = {
@@ -99,25 +99,17 @@ export default function CouplePage() {
 
   return (
     <AppShell rightSlot={<UserButton />}>
-      <main className="mx-auto max-w-3xl space-y-6 px-4 py-8 sm:px-6 pb-8">
-        <PageIntro
-          eyebrow="Together"
-          title="Couple"
-          description="Share the journey only as far as you both choose."
-        />
-
-      <header className="border-b border-[var(--border)] bg-surface">
-        <div className="mx-auto flex h-16 max-w-3xl items-center justify-between px-4 sm:px-6">
-          <Link href="/dashboard" className="text-sm text-secondary hover:text-primary">
-            ← Dashboard
-          </Link>
-          <span className="font-semibold text-primary">Couple</span>
-          <UserButton />
+      <MoodCanvas mood="couple">
+      <main className="mx-auto max-w-3xl space-y-6 px-4 py-6 pb-8 sm:px-6 sm:py-8">
+        <div className="rounded-2xl border border-[var(--border)] bg-surface/90 p-4 shadow-sm backdrop-blur-sm sm:p-6">
+          <PageIntro
+            eyebrow="Together"
+            title="Couple"
+            description="Share the journey only as far as you both choose."
+          />
         </div>
-      </header>
 
-      <div className="mx-auto max-w-3xl space-y-8 px-4 py-8 sm:px-6">
-        <section className="card p-6">
+        <section className="card p-4 sm:p-6">
           <h1 className="text-xl font-semibold text-[var(--text)]">Invite your partner</h1>
           <p className="mt-2 text-sm text-secondary">
             We&apos;ll email an invitation link. Your private journal entries remain private unless you choose to share them.
@@ -144,11 +136,11 @@ export default function CouplePage() {
           </form>
         </section>
 
-        {message && <p role="status" className="text-sm text-secondary">{message}</p>}
-        {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
+        {message && <p role="status" className="rounded-xl border border-[var(--border)] bg-surface/90 px-4 py-3 text-sm text-[var(--text)]">{message}</p>}
+        {error && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
 
         {relationship && (
-          <section className="card p-6">
+          <section className="card p-4 sm:p-6">
             <h2 className="text-lg font-semibold text-[var(--text)]">Your couple</h2>
             <p className="mt-2 text-sm text-secondary">
               Connected with {relationship.name || relationship.email}.
@@ -158,7 +150,7 @@ export default function CouplePage() {
         )}
 
         {outgoing.length > 0 && (
-          <section className="card p-6">
+          <section className="card p-4 sm:p-6">
             <h2 className="text-lg font-semibold text-[var(--text)]">Invitation sent</h2>
             <p className="mt-2 text-sm text-secondary">
               An invitation is pending. We won&apos;t confirm whether an address has an account.
@@ -171,7 +163,7 @@ export default function CouplePage() {
           </section>
         )}
 
-        <section className="card p-6">
+        <section className="card p-4 sm:p-6">
           <h2 className="text-lg font-semibold text-[var(--text)]">Invitations for you</h2>
           {loading ? (
             <p className="mt-4 text-sm text-secondary">Loading invitations...</p>
@@ -210,8 +202,8 @@ export default function CouplePage() {
             </ul>
           )}
         </section>
-      </div>
-    </main>
+      </main>
+      </MoodCanvas>
     </AppShell>
   );
 }

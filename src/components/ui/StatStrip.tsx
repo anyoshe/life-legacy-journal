@@ -1,7 +1,11 @@
 export function StatStrip({
   items,
 }: {
-  items: { label: string; value: string | number; tone?: "indigo" | "sage" | "gold" | "default" }[];
+  items: {
+    label: string;
+    value: string | number;
+    tone?: "indigo" | "sage" | "gold" | "default";
+  }[];
 }) {
   if (items.length === 0) return null;
   return (

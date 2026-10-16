@@ -3,6 +3,7 @@
 import { UserButton } from "@clerk/nextjs";
 import { FormEvent, useEffect, useState } from "react";
 import { AppShell } from "@/components/layout/AppShell";
+import { MoodCanvas } from "@/components/ui/MoodCanvas";
 import { PageMoodHeader } from "@/components/ui/PageMoodHeader";
 import { StatStrip } from "@/components/ui/StatStrip";
 
@@ -67,6 +68,7 @@ export default function LettersPage() {
 
   return (
     <AppShell rightSlot={<UserButton />}>
+      <MoodCanvas mood="letters">
       <main className="mx-auto max-w-3xl space-y-6 px-4 py-8 sm:px-6">
         <PageMoodHeader
           accent="parchment"
@@ -145,6 +147,7 @@ export default function LettersPage() {
           </ul>
         )}
       </main>
+      </MoodCanvas>
     </AppShell>
   );
 }

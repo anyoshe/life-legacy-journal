@@ -3,6 +3,10 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { UserButton } from "@clerk/nextjs";
+import Link from "next/link";
+import { AppShell } from "@/components/layout/AppShell";
+import { MoodCanvas } from "@/components/ui/MoodCanvas";
+import { PageIntro } from "@/components/ui/PageIntro";
 
 type Visibility = "PRIVATE" | "SHARED_WITH_PARTNER";
 
@@ -105,40 +109,34 @@ export default function NewEntryPage() {
 
   if (success) {
     return (
-      <main className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-4xl mb-4">✓</div>
-          <h1 className="text-xl font-semibold text-[var(--text)]">Entry saved</h1>
-          <p className="text-secondary mt-1">Returning to dashboard…</p>
-        </div>
-      </main>
+      <MoodCanvas mood="journal">
+        <main className="flex min-h-screen items-center justify-center px-4 py-8">
+          <div className="w-full max-w-md rounded-2xl border border-[var(--border)] bg-surface/95 p-6 text-center shadow-sm backdrop-blur-sm sm:p-8">
+            <div className="mb-4 text-4xl">✓</div>
+            <h1 className="text-xl font-semibold text-[var(--text)]">Entry saved</h1>
+            <p className="mt-1 text-secondary">Returning to dashboard…</p>
+          </div>
+        </main>
+      </MoodCanvas>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Top bar */}
-      <header className="border-b border-[var(--border)] bg-surface sticky top-0 z-10">
-        <div className="max-w-2xl mx-auto px-4 h-14 flex items-center justify-between">
-          <a href="/dashboard" className="text-sm text-secondary hover:text-primary transition-colors">
-            ← Dashboard
-          </a>
-          <span className="text-sm font-medium text-[var(--text)]">Daily Entry</span>
-          <UserButton />
-        </div>
-      </header>
-
-      <main className="max-w-2xl mx-auto px-4 py-8">
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-[var(--text)] tracking-tight">
-            How was your day?
-          </h1>
-          <p className="text-secondary mt-1 text-sm">
-            A few quiet minutes of reflection. No pressure to fill everything.
-          </p>
+    <AppShell rightSlot={<UserButton />}>
+      <MoodCanvas mood="journal">
+      <main className="mx-auto max-w-3xl space-y-6 px-4 py-6 sm:px-6 sm:py-8">
+        <div className="rounded-2xl border border-[var(--border)] bg-surface/90 p-4 shadow-sm backdrop-blur-sm sm:p-6">
+          <PageIntro
+            eyebrow="A moment for yourself"
+            title="How was your day?"
+            description="A few quiet minutes of reflection. No pressure to fill everything."
+          />
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-8">
+        <form
+          onSubmit={handleSubmit}
+          className="space-y-8 rounded-3xl border border-[var(--border)] bg-surface/95 p-4 shadow-sm backdrop-blur-sm sm:p-8"
+        >
           {/* Visibility toggle */}
           <div>
             <label className="block text-sm font-medium text-[var(--text)] mb-3">
@@ -387,13 +385,13 @@ export default function NewEntryPage() {
             </div>
           )}
 
-          <div className="flex items-center justify-between pt-2">
-            <a
-              href="/dashboard"
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+            <Link
+              href="/entries"
               className="text-sm text-secondary hover:text-primary transition-colors"
             >
               Cancel
-            </a>
+            </Link>
             <button
               type="submit"
               disabled={isSubmitting || !content.trim()}
@@ -404,6 +402,7 @@ export default function NewEntryPage() {
           </div>
         </form>
       </main>
-    </div>
+      </MoodCanvas>
+    </AppShell>
   );
 }

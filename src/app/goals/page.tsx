@@ -5,6 +5,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
+import { MoodCanvas } from "@/components/ui/MoodCanvas";
 import { PageMoodHeader } from "@/components/ui/PageMoodHeader";
 import { StatStrip } from "@/components/ui/StatStrip";
 import { lifeAreaMood } from "@/lib/nav-config";
@@ -37,6 +38,7 @@ export default function GoalsPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [filterArea, setFilterArea] = useState<string>("ALL");
   const [title, setTitle] = useState("");
   const [area, setArea] = useState("PERSONAL");
   const [type, setType] = useState("YES_NO");
@@ -99,29 +101,31 @@ export default function GoalsPage() {
   const active = goals.filter((g) => g.status !== "COMPLETED" && g.status !== "ARCHIVED");
   const completed = goals.filter((g) => g.status === "COMPLETED");
 
-  const byArea = useMemo(() => {
-    const map = new Map<string, Goal[]>();
-    for (const g of goals) {
-      const list = map.get(g.area) ?? [];
-      list.push(g);
-      map.set(g.area, list);
-    }
-    return map;
+  const visible = useMemo(() => {
+    if (filterArea === "ALL") return goals;
+    return goals.filter((g) => g.area === filterArea);
+  }, [goals, filterArea]);
+
+  const areasPresent = useMemo(() => {
+    const s = new Set(goals.map((g) => g.area));
+    return areas.filter((a) => s.has(a));
   }, [goals]);
 
   return (
     <AppShell rightSlot={<UserButton />}>
-      <main className="mx-auto max-w-5xl space-y-6 px-4 py-8 sm:px-6">
+      <MoodCanvas mood="goals">
+      {/* Wider workspace — non-dashboard only */}
+      <main className="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
         <PageMoodHeader
           accent="indigo"
           eyebrow="My Life"
           title="Goals"
-          description="Directions that support your vision — organized by the areas of your life."
+          description="Directions that support your vision — scan the map, then open a goal to act."
           action={
             <button
               type="button"
               onClick={() => setShowForm((v) => !v)}
-              className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-semibold text-[var(--primary-dark)] shadow-sm"
+              className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-semibold text-[#312e81] shadow-sm"
             >
               <Plus size={16} /> New goal
             </button>
@@ -132,9 +136,43 @@ export default function GoalsPage() {
           items={[
             { label: "Active", value: active.length, tone: "indigo" },
             { label: "Completed", value: completed.length, tone: "sage" },
-            { label: "Areas", value: byArea.size, tone: "gold" },
+            { label: "Life areas", value: areasPresent.length, tone: "gold" },
           ]}
         />
+
+        {/* Area filter chips — reduces empty vertical section stacking */}
+        {areasPresent.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setFilterArea("ALL")}
+              className={
+                filterArea === "ALL"
+                  ? "rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-white"
+                  : "rounded-full bg-[var(--border-subtle)] px-3 py-1.5 text-xs font-medium text-secondary hover:text-[var(--text)]"
+              }
+            >
+              All goals
+            </button>
+            {areasPresent.map((a) => {
+              const mood = lifeAreaMood[a] ?? lifeAreaMood.OTHER;
+              return (
+                <button
+                  key={a}
+                  type="button"
+                  onClick={() => setFilterArea(a)}
+                  className={
+                    filterArea === a
+                      ? "rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-white"
+                      : "rounded-full bg-[var(--border-subtle)] px-3 py-1.5 text-xs font-medium text-secondary hover:text-[var(--text)]"
+                  }
+                >
+                  {mood.label}
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         {error && (
           <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
@@ -143,10 +181,7 @@ export default function GoalsPage() {
         )}
 
         {showForm && (
-          <form
-            onSubmit={createGoal}
-            className="card grid gap-4 p-5 sm:grid-cols-2"
-          >
+          <form onSubmit={createGoal} className="card grid gap-4 p-5 sm:grid-cols-2">
             <label className="text-sm font-medium sm:col-span-2">
               What do you want to accomplish?
               <input
@@ -208,7 +243,6 @@ export default function GoalsPage() {
                 value={unit}
                 onChange={(e) => setUnit(e.target.value)}
                 className="input-field mt-1.5"
-                placeholder="e.g. KES, books, sessions"
               />
             </label>
             <label className="text-sm font-medium sm:col-span-2">
@@ -224,11 +258,7 @@ export default function GoalsPage() {
               <button type="submit" disabled={saving} className="btn-primary disabled:opacity-50">
                 {saving ? "Saving…" : "Create goal"}
               </button>
-              <button
-                type="button"
-                onClick={() => setShowForm(false)}
-                className="btn-secondary"
-              >
+              <button type="button" onClick={() => setShowForm(false)} className="btn-secondary">
                 Cancel
               </button>
             </div>
@@ -237,76 +267,81 @@ export default function GoalsPage() {
 
         {loading ? (
           <p className="text-sm text-secondary">Loading goals…</p>
-        ) : goals.length === 0 ? (
+        ) : visible.length === 0 ? (
           <div className="card p-10 text-center">
             <p className="text-base font-semibold text-[var(--text)]">
-              Choose one goal that matters
+              {filterArea === "ALL" ? "Choose one goal that matters" : "No goals in this area yet"}
             </p>
             <p className="mt-2 text-sm text-secondary">
-              Marriage, faith, health, or money — start with a single direction.
+              Start with a single direction under marriage, faith, health, or money.
             </p>
-            <button
-              type="button"
-              onClick={() => setShowForm(true)}
-              className="btn-primary mt-4"
-            >
+            <button type="button" onClick={() => setShowForm(true)} className="btn-primary mt-4">
               Create a goal
             </button>
           </div>
         ) : (
-          <div className="space-y-8">
-            {[...byArea.entries()].map(([areaKey, list]) => {
-              const mood = lifeAreaMood[areaKey] ?? lifeAreaMood.OTHER;
+          /* Dense responsive grid: 1 / 2 / 3 columns — all visible goals in one overview */
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {visible.map((goal) => {
+              const mood = lifeAreaMood[goal.area] ?? lifeAreaMood.OTHER;
+              const msDone = goal.milestones?.filter((m) => m.completed).length ?? 0;
+              const msTotal = goal.milestones?.length ?? 0;
+              const actOpen = goal.actions?.filter((a) => !a.completed).length ?? 0;
+              const pct =
+                msTotal > 0
+                  ? Math.round((msDone / msTotal) * 100)
+                  : goal.targetValue && goal.currentValue != null
+                    ? Math.min(
+                        100,
+                        Math.round((Number(goal.currentValue) / Number(goal.targetValue)) * 100),
+                      )
+                    : null;
               return (
-                <section key={areaKey}>
-                  <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-secondary">
-                    {mood.label}
-                  </h2>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    {list.map((goal) => {
-                      const msDone =
-                        goal.milestones?.filter((m) => m.completed).length ?? 0;
-                      const msTotal = goal.milestones?.length ?? 0;
-                      const actOpen =
-                        goal.actions?.filter((a) => !a.completed).length ?? 0;
-                      return (
-                        <Link
-                          key={goal.id}
-                          href={`/goals/${goal.id}`}
-                          className="group relative min-h-[8rem] overflow-hidden rounded-2xl shadow-sm transition hover:shadow-md"
-                          style={{ background: mood.gradient }}
-                        >
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
-                          <div className="relative flex h-full flex-col justify-end p-4 text-white">
-                            <p className="text-[0.65rem] font-medium uppercase tracking-wide text-white/80">
-                              {goal.status.replaceAll("_", " ")}
-                            </p>
-                            <p className="mt-1 text-base font-semibold leading-snug">
-                              {goal.title}
-                            </p>
-                            {goal.why && (
-                              <p className="mt-1 line-clamp-2 text-xs text-white/80">
-                                {goal.why}
-                              </p>
-                            )}
-                            <p className="mt-2 text-[0.65rem] text-white/70">
-                              {msTotal > 0 && `${msDone}/${msTotal} milestones · `}
-                              {actOpen > 0 ? `${actOpen} open actions` : "Open goal"}
-                              {goal.deadline
-                                ? ` · due ${new Date(goal.deadline).toLocaleDateString()}`
-                                : ""}
-                            </p>
-                          </div>
-                        </Link>
-                      );
-                    })}
+                <Link
+                  key={goal.id}
+                  href={`/goals/${goal.id}`}
+                  className="group relative flex min-h-[11rem] flex-col overflow-hidden rounded-2xl shadow-sm transition hover:shadow-md"
+                  style={{ background: mood.gradient }}
+                >
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/25 to-transparent" />
+                  <div className="relative mt-auto flex flex-col p-4 text-white">
+                    <p className="text-[0.65rem] font-semibold uppercase tracking-wider text-white/80">
+                      {mood.label} · {goal.status.replaceAll("_", " ")}
+                    </p>
+                    <p className="mt-1 text-base font-semibold leading-snug">{goal.title}</p>
+                    {goal.why && (
+                      <p className="mt-1 line-clamp-2 text-xs text-white/85">{goal.why}</p>
+                    )}
+                    <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[0.65rem] text-white/75">
+                      {pct != null && <span>{pct}% milestones</span>}
+                      {msTotal > 0 && <span>{msDone}/{msTotal} milestones</span>}
+                      {actOpen > 0 && <span>{actOpen} open actions</span>}
+                      {goal.deadline && (
+                        <span>Due {new Date(goal.deadline).toLocaleDateString()}</span>
+                      )}
+                    </div>
+                    {pct != null && (
+                      <div
+                        className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/25"
+                        role="progressbar"
+                        aria-valuenow={pct}
+                        aria-valuemin={0}
+                        aria-valuemax={100}
+                      >
+                        <div
+                          className="h-full rounded-full bg-white/90"
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                    )}
                   </div>
-                </section>
+                </Link>
               );
             })}
           </div>
         )}
       </main>
+      </MoodCanvas>
     </AppShell>
   );
 }

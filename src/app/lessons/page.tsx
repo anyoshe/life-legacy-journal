@@ -2,6 +2,7 @@
 
 import { UserButton } from "@clerk/nextjs";
 import { AppShell } from "@/components/layout/AppShell";
+import { MoodCanvas } from "@/components/ui/MoodCanvas";
 import { PageIntro } from "@/components/ui/PageIntro";
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
@@ -94,24 +95,17 @@ export default function LessonsPage() {
 
   return (
     <AppShell rightSlot={<UserButton />}>
-      <main className="mx-auto max-w-3xl space-y-6 px-4 py-8 sm:px-6 pb-8">
-        <PageIntro
-          eyebrow="My Journal"
-          title="Lessons"
-          description="Numbered truths you do not want to forget."
-        />
-
-<div>
-          <p className="eyebrow mb-2">Legacy</p>
-          <h1 className="text-2xl font-semibold tracking-tight text-[var(--text)]">
-            Life lessons
-          </h1>
-          <p className="mt-2 text-sm text-secondary">
-            Numbered truths you do not want to forget — from experience, failure,
-            books, or faith. Private to you.
-          </p>
+      <MoodCanvas mood="lessons">
+      <main className="mx-auto max-w-6xl space-y-6 px-4 py-8 pb-8 sm:px-6 lg:px-8">
+        <div className="rounded-2xl border border-[var(--border)] bg-surface/90 p-4 shadow-sm backdrop-blur-sm sm:p-6">
+          <PageIntro
+            eyebrow="Wisdom to carry forward"
+            title="Life lessons"
+            description="Numbered truths you do not want to forget — from experience, failure, books, or faith. Private to you."
+          />
         </div>
 
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:items-start">
         <form onSubmit={onCreate} className="card space-y-3 p-5">
           <h2 className="text-sm font-semibold text-[var(--text)]">
             <Plus size={14} className="mr-1 inline" />
@@ -169,7 +163,12 @@ export default function LessonsPage() {
         </form>
 
         {loading ? (
-          <p className="text-sm text-secondary">Loading…</p>
+          <p
+            role="status"
+            className="rounded-xl border border-[var(--border)] bg-surface/90 px-4 py-3 text-sm font-medium text-[var(--text)] shadow-sm"
+          >
+            Loading lessons…
+          </p>
         ) : lessons.length === 0 ? (
           <div className="card flex flex-col items-center px-6 py-12 text-center">
             <BookMarked className="mb-3 text-primary" size={28} />
@@ -227,7 +226,9 @@ export default function LessonsPage() {
             ))}
           </ul>
         )}
+        </div>
       </main>
+      </MoodCanvas>
     </AppShell>
   );
 }

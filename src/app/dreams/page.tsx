@@ -3,6 +3,7 @@
 import { UserButton } from "@clerk/nextjs";
 import { FormEvent, useEffect, useState } from "react";
 import { AppShell } from "@/components/layout/AppShell";
+import { MoodCanvas } from "@/components/ui/MoodCanvas";
 import { PageMoodHeader } from "@/components/ui/PageMoodHeader";
 import { StatStrip } from "@/components/ui/StatStrip";
 
@@ -11,7 +12,7 @@ type Dream = {
   kind: string;
   title: string | null;
   content: string;
-  date: string;
+  date?: string;
 };
 
 export default function DreamsPage() {
@@ -62,19 +63,19 @@ export default function DreamsPage() {
     }
   }
 
-  const day = dreams.filter((d) => d.kind === "DAY_INTENTION" || d.kind?.includes("DAY"));
-  const night = dreams.filter((d) => d.kind === "NIGHT_DREAM" || d.kind?.includes("NIGHT"));
+  const day = dreams.filter((d) => String(d.kind).includes("DAY"));
+  const night = dreams.filter((d) => String(d.kind).includes("NIGHT"));
 
   return (
     <AppShell rightSlot={<UserButton />}>
-      <main className="mx-auto max-w-3xl space-y-6 px-4 py-8 sm:px-6">
+      <MoodCanvas mood="dreams">
+      <main className="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
         <PageMoodHeader
           accent="sky"
           eyebrow="My Journal"
           title="Dreams"
           description="Day intentions and night dreams that shape who you become."
         />
-
         <StatStrip
           items={[
             { label: "Day intentions", value: day.length, tone: "indigo" },
@@ -82,48 +83,32 @@ export default function DreamsPage() {
             { label: "Total", value: dreams.length },
           ]}
         />
-
         {error && (
           <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
             {error}
           </p>
         )}
-
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] lg:items-start">
         <form onSubmit={onSubmit} className="card space-y-3 p-5">
           <label className="text-sm font-medium">
             Kind
-            <select
-              value={kind}
-              onChange={(e) => setKind(e.target.value)}
-              className="input-field mt-1.5"
-            >
+            <select value={kind} onChange={(e) => setKind(e.target.value)} className="input-field mt-1.5">
               <option value="DAY_INTENTION">Day intention</option>
               <option value="NIGHT_DREAM">Night dream</option>
             </select>
           </label>
           <label className="text-sm font-medium">
             Title (optional)
-            <input
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="input-field mt-1.5"
-            />
+            <input value={title} onChange={(e) => setTitle(e.target.value)} className="input-field mt-1.5" />
           </label>
           <label className="text-sm font-medium">
             What did you dream or intend?
-            <textarea
-              required
-              rows={4}
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              className="input-field mt-1.5"
-            />
+            <textarea required rows={4} value={content} onChange={(e) => setContent(e.target.value)} className="input-field mt-1.5" />
           </label>
           <button type="submit" disabled={saving} className="btn-primary disabled:opacity-50">
             {saving ? "Saving…" : "Save"}
           </button>
         </form>
-
         {loading ? (
           <p className="text-sm text-secondary">Loading…</p>
         ) : dreams.length === 0 ? (
@@ -131,21 +116,21 @@ export default function DreamsPage() {
             Capture a day intention or a night dream when you are ready.
           </div>
         ) : (
-          <ul className="space-y-3">
+          <ul className="grid gap-3 sm:grid-cols-2">
             {dreams.map((d) => (
               <li key={d.id} className="card card-tint-indigo p-4">
                 <p className="text-xs font-medium uppercase tracking-wide text-secondary">
-                  {d.kind?.replaceAll("_", " ")}
+                  {String(d.kind).replaceAll("_", " ")}
                 </p>
-                <p className="mt-1 font-medium text-[var(--text)]">
-                  {d.title || "Untitled"}
-                </p>
-                <p className="mt-1 text-sm text-secondary line-clamp-3">{d.content}</p>
+                <p className="mt-1 font-medium text-[var(--text)]">{d.title || "Untitled"}</p>
+                <p className="mt-1 line-clamp-3 text-sm text-secondary">{d.content}</p>
               </li>
             ))}
           </ul>
         )}
+        </div>
       </main>
+      </MoodCanvas>
     </AppShell>
   );
 }

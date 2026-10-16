@@ -3,8 +3,8 @@
 import { UserButton } from "@clerk/nextjs";
 import { AppShell } from "@/components/layout/AppShell";
 import { PageIntro } from "@/components/ui/PageIntro";
+import { MoodCanvas } from "@/components/ui/MoodCanvas";
 import { FormEvent, useEffect, useState } from "react";
-import Link from "next/link";
 import { ArrowLeft, Compass, Plus, X } from "lucide-react";
 
 type Foundation = {
@@ -78,22 +78,34 @@ export default function FoundationPage() {
 
   if (loading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-background text-sm text-secondary">
-        <PageIntro
-          eyebrow="My Life"
-          title="Foundation"
-          description="Vision, mission, values, and the principles you will not compromise."
-        />
-
-        Loading foundation…
-      </main>
+      <AppShell rightSlot={<UserButton />}>
+        <MoodCanvas mood="foundation">
+          <main className="mx-auto max-w-3xl space-y-5 px-4 py-6 sm:px-6 sm:py-8">
+            <div className="rounded-2xl border border-[var(--border)] bg-surface/90 p-4 shadow-sm backdrop-blur-sm sm:p-6">
+              <PageIntro
+                eyebrow="My Life"
+                title="Foundation"
+                description="Vision, mission, values, and the principles you will not compromise."
+              />
+            </div>
+            <p
+              role="status"
+              aria-live="polite"
+              className="rounded-xl border border-[var(--border)] bg-surface/90 px-4 py-3 text-sm font-medium text-[var(--text)] shadow-sm"
+            >
+              Loading foundation…
+            </p>
+          </main>
+        </MoodCanvas>
+      </AppShell>
     );
   }
 
   return (
     <AppShell rightSlot={<UserButton />}>
-      <main className="mx-auto max-w-3xl space-y-6 px-4 py-8 sm:px-6 pb-8">
-<div className="mb-8">
+      <MoodCanvas mood="foundation">
+      <main className="mx-auto max-w-3xl space-y-6 px-4 py-6 pb-8 sm:px-6 sm:py-8">
+        <header className="mb-8 rounded-2xl border border-[var(--border)] bg-surface/90 p-4 shadow-sm backdrop-blur-sm sm:p-6">
           <div className="mb-2 inline-flex items-center gap-2 text-primary">
             <Compass size={20} />
             <span className="text-xs font-semibold uppercase tracking-wide">Life foundation</span>
@@ -106,7 +118,7 @@ export default function FoundationPage() {
             rules guide decisions. Goals in each life area (marriage, finance, career…) should
             serve this foundation — then actions move those goals, day by day.
           </p>
-        </div>
+        </header>
 
         {error && (
           <p className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
@@ -120,7 +132,7 @@ export default function FoundationPage() {
         )}
 
         <form onSubmit={handleSave} className="space-y-6">
-          <section className="rounded-2xl border border-[var(--border)] bg-surface p-6">
+          <section className="rounded-2xl border border-[var(--border)] bg-surface/95 p-4 shadow-sm sm:p-6">
             <h2 className="text-lg font-semibold text-[var(--text)]">Life vision</h2>
             <p className="mt-1 text-xs text-secondary">
               5–20 years. Family, marriage, spiritual life, work, health, legacy…
@@ -134,7 +146,7 @@ export default function FoundationPage() {
             />
           </section>
 
-          <section className="rounded-2xl border border-[var(--border)] bg-surface p-6">
+          <section className="rounded-2xl border border-[var(--border)] bg-surface/95 p-4 shadow-sm sm:p-6">
             <h2 className="text-lg font-semibold text-[var(--text)]">Personal mission</h2>
             <p className="mt-1 text-xs text-secondary">
               Why you are here — contribution, calling, who you serve.
@@ -148,7 +160,7 @@ export default function FoundationPage() {
             />
           </section>
 
-          <section className="rounded-2xl border border-[var(--border)] bg-surface p-6">
+          <section className="rounded-2xl border border-[var(--border)] bg-surface/95 p-4 shadow-sm sm:p-6">
             <h2 className="text-lg font-semibold text-[var(--text)]">Core values</h2>
             <p className="mt-1 text-xs text-secondary">e.g. Faith, Integrity, Family, Discipline</p>
             <div className="mt-3 flex flex-wrap gap-2">
@@ -168,7 +180,7 @@ export default function FoundationPage() {
                 </span>
               ))}
             </div>
-            <div className="mt-3 flex gap-2">
+            <div className="mt-3 flex flex-col gap-2 sm:flex-row">
               <input
                 value={newValue}
                 onChange={(e) => setNewValue(e.target.value)}
@@ -201,7 +213,7 @@ export default function FoundationPage() {
             </div>
           </section>
 
-          <section className="rounded-2xl border border-[var(--border)] bg-surface p-6">
+          <section className="rounded-2xl border border-[var(--border)] bg-surface/95 p-4 shadow-sm sm:p-6">
             <h2 className="text-lg font-semibold text-[var(--text)]">Personal rules</h2>
             <p className="mt-1 text-xs text-secondary">
               Principles you will not compromise (e.g. “I will not sacrifice family for money”).
@@ -223,7 +235,7 @@ export default function FoundationPage() {
                 </li>
               ))}
             </ul>
-            <div className="mt-3 flex gap-2">
+            <div className="mt-3 flex flex-col gap-2 sm:flex-row">
               <input
                 value={newRule}
                 onChange={(e) => setNewRule(e.target.value)}
@@ -276,6 +288,7 @@ export default function FoundationPage() {
           </p>
         )}
       </main>
+      </MoodCanvas>
     </AppShell>
   );
 }

@@ -4,6 +4,7 @@ import { ArrowLeft } from "lucide-react";
 import { getCurrentDbUser } from "@/lib/auth";
 import { getWeekContext } from "@/lib/week-review";
 import { WeeklyGlance } from "@/components/WeeklyGlance";
+import { MoodCanvas } from "@/components/ui/MoodCanvas";
 
 function fmt(d: Date) {
   return new Intl.DateTimeFormat("en-GB", {
@@ -20,24 +21,24 @@ export default async function WeeklySummaryPage() {
   const ctx = await getWeekContext(user.id);
 
   return (
-    <div className="page-wash min-h-screen pb-nav">
+    <MoodCanvas mood="reviews">
       <header className="sticky top-0 z-10 border-b border-[var(--border)] bg-surface/95 backdrop-blur">
-        <div className="mx-auto flex h-14 max-w-3xl items-center justify-between px-4">
+        <div className="mx-auto flex max-w-3xl flex-wrap items-center justify-between gap-2 px-4 py-3 sm:h-14 sm:flex-nowrap sm:py-0">
           <Link
             href="/dashboard"
-            className="inline-flex items-center gap-1.5 text-sm text-secondary hover:text-primary"
+            className="inline-flex items-center gap-1.5 text-xs text-secondary hover:text-primary sm:text-sm"
           >
             <ArrowLeft size={16} /> Dashboard
           </Link>
-          <span className="text-sm font-medium text-[var(--text)]">Week glance</span>
-          <Link href="/reviews/weekly" className="text-sm text-primary">
+          <span className="text-xs font-medium text-[var(--text)] sm:text-sm">Week glance</span>
+          <Link href="/reviews/weekly" className="text-xs text-primary sm:text-sm">
             Full review
           </Link>
         </div>
       </header>
 
-      <main className="mx-auto max-w-3xl space-y-6 px-4 py-8">
-        <div>
+      <main className="mx-auto max-w-3xl space-y-6 px-4 py-6 sm:py-8">
+        <div className="rounded-2xl border border-[var(--border)] bg-surface/90 p-4 shadow-sm backdrop-blur-sm sm:p-6">
           <p className="eyebrow mb-2">Standings</p>
           <h1 className="text-2xl font-semibold tracking-tight text-[var(--text)]">
             Where you stand this week
@@ -49,6 +50,6 @@ export default async function WeeklySummaryPage() {
         </div>
         <WeeklyGlance data={ctx} />
       </main>
-    </div>
+    </MoodCanvas>
   );
 }

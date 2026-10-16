@@ -18,6 +18,7 @@ import {
 } from "@/components/dashboard/TodayTodos";
 import { AppShell } from "@/components/layout/AppShell";
 import { PageIntro } from "@/components/ui/PageIntro";
+import { MoodCanvas } from "@/components/ui/MoodCanvas";
 
 const activeStatuses = new Set<GoalStatus>([
   GoalStatus.ACTIVE,
@@ -129,16 +130,19 @@ export default async function TodayPage() {
 
   return (
     <AppShell rightSlot={<UserButton />}>
+      <MoodCanvas mood="habits">
       <main className="mx-auto max-w-3xl space-y-6 px-4 py-8 sm:px-6">
-        <PageIntro
-          eyebrow={greeting()}
-          title={firstName ? `${firstName}, here is today` : "Today"}
-          description={new Intl.DateTimeFormat("en-GB", {
-            weekday: "long",
-            day: "numeric",
-            month: "long",
-          }).format(now)}
-        />
+        <div className="rounded-2xl border border-[var(--border)] bg-surface/90 p-4 shadow-sm backdrop-blur-sm sm:p-6">
+          <PageIntro
+            eyebrow={greeting()}
+            title={firstName ? `${firstName}, here is today` : "Today"}
+            description={new Intl.DateTimeFormat("en-GB", {
+              weekday: "long",
+              day: "numeric",
+              month: "long",
+            }).format(now)}
+          />
+        </div>
 
         <p className="text-xs text-muted">
           Todos {todosDone}/{todoItems.length} · Habits {habitsDone}/
@@ -184,6 +188,7 @@ export default async function TodayPage() {
           </Link>
         </p>
       </main>
+      </MoodCanvas>
     </AppShell>
   );
 }

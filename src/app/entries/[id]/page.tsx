@@ -2,7 +2,10 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
+import { UserButton } from "@clerk/nextjs";
 import { useParams, useRouter } from "next/navigation";
+import { AppShell } from "@/components/layout/AppShell";
+import { MoodCanvas } from "@/components/ui/MoodCanvas";
 import {
   ArrowLeft,
   Heart,
@@ -182,9 +185,10 @@ export default function EntryDetailPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <AppShell rightSlot={<UserButton />}>
+      <MoodCanvas mood="journal">
       <header className="sticky top-0 z-10 border-b border-[var(--border)] bg-surface/95 backdrop-blur">
-        <div className="mx-auto flex h-14 max-w-2xl items-center justify-between px-4">
+        <div className="mx-auto flex h-14 max-w-3xl items-center justify-between px-4 sm:px-6">
           <Link
             href="/entries"
             className="inline-flex items-center gap-1.5 text-sm text-secondary hover:text-primary"
@@ -219,7 +223,7 @@ export default function EntryDetailPage() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-2xl px-4 py-8">
+      <main className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
         {error && (
           <p className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
             {error}
@@ -262,7 +266,7 @@ export default function EntryDetailPage() {
               </h1>
             )}
 
-            <p className="mt-4 whitespace-pre-wrap text-[15px] leading-7 text-[var(--text)]">
+            <p className="mt-5 whitespace-pre-wrap text-base leading-8 text-[var(--text)]">
               {entry.content}
             </p>
 
@@ -543,6 +547,7 @@ export default function EntryDetailPage() {
           </form>
         )}
       </main>
-    </div>
+      </MoodCanvas>
+    </AppShell>
   );
 }

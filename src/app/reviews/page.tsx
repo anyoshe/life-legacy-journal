@@ -3,6 +3,7 @@ import { UserButton } from "@clerk/nextjs";
 import { redirect } from "next/navigation";
 import { getCurrentDbUser } from "@/lib/auth";
 import { AppShell } from "@/components/layout/AppShell";
+import { MoodCanvas } from "@/components/ui/MoodCanvas";
 
 const periods = [
   {
@@ -33,8 +34,9 @@ export default async function ReviewsHubPage() {
 
   return (
     <AppShell rightSlot={<UserButton />}>
-      <main className="mx-auto max-w-2xl space-y-6 px-4 py-8 sm:px-6">
-        <header>
+      <MoodCanvas mood="reviews">
+      <main className="mx-auto max-w-2xl space-y-6 px-4 py-6 sm:px-6 sm:py-8">
+        <header className="rounded-2xl border border-[var(--border)] bg-surface/90 p-4 shadow-sm backdrop-blur-sm sm:p-6">
           <p className="eyebrow mb-2">Reflection</p>
           <h1 className="text-2xl font-semibold tracking-tight text-[var(--text)]">
             Reviews
@@ -54,6 +56,7 @@ export default async function ReviewsHubPage() {
           ))}
         </ul>
       </main>
+      </MoodCanvas>
     </AppShell>
   );
 }

@@ -3,6 +3,7 @@
 import { UserButton } from "@clerk/nextjs";
 import { FormEvent, useEffect, useState } from "react";
 import { AppShell } from "@/components/layout/AppShell";
+import { MoodCanvas } from "@/components/ui/MoodCanvas";
 import { PageMoodHeader } from "@/components/ui/PageMoodHeader";
 import { StatStrip } from "@/components/ui/StatStrip";
 
@@ -12,7 +13,6 @@ type Habit = {
   targetPerWeek: number;
   isActive: boolean;
   streak?: number;
-  logs?: { date: string; completed: boolean }[];
 };
 
 export default function HabitsPage() {
@@ -28,7 +28,7 @@ export default function HabitsPage() {
       const res = await fetch("/api/habits");
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Unable to load habits.");
-      setHabits(data.habits ?? data ?? []);
+      setHabits(data.habits ?? []);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unable to load habits.");
     } finally {
@@ -66,27 +66,25 @@ export default function HabitsPage() {
 
   return (
     <AppShell rightSlot={<UserButton />}>
-      <main className="mx-auto max-w-3xl space-y-6 px-4 py-8 sm:px-6">
+      <MoodCanvas mood="habits">
+      <main className="mx-auto max-w-5xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
         <PageMoodHeader
           accent="sage"
           eyebrow="My Life"
           title="Habits"
           description="Small daily practices that compound into who you become."
         />
-
         <StatStrip
           items={[
             { label: "Active habits", value: active.length, tone: "sage" },
             { label: "Best streak", value: bestStreak, tone: "gold" },
           ]}
         />
-
         {error && (
           <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
             {error}
           </p>
         )}
-
         <form onSubmit={createHabit} className="card flex flex-wrap items-end gap-3 p-4">
           <label className="min-w-[12rem] flex-1 text-sm font-medium">
             New habit
@@ -113,7 +111,6 @@ export default function HabitsPage() {
             {saving ? "Saving…" : "Add"}
           </button>
         </form>
-
         {loading ? (
           <p className="text-sm text-secondary">Loading…</p>
         ) : active.length === 0 ? (
@@ -121,7 +118,7 @@ export default function HabitsPage() {
             No habits yet. Add one practice you want to nurture.
           </div>
         ) : (
-          <ul className="grid gap-3 sm:grid-cols-2">
+          <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {active.map((h) => (
               <li key={h.id} className="card card-tint-sage p-4">
                 <p className="font-semibold text-[var(--text)]">{h.title}</p>
@@ -134,6 +131,7 @@ export default function HabitsPage() {
           </ul>
         )}
       </main>
+      </MoodCanvas>
     </AppShell>
   );
 }
