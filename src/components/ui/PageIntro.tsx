@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
 
-/** Consistent page title block matching dashboard typography */
 export function PageIntro({
   eyebrow,
   title,
