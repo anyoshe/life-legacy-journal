@@ -227,25 +227,28 @@ export default function GoalDetailPage() {
 
   if (loading) {
     return (
-    <AppShell rightSlot={<UserButton />}>
-      <MoodCanvas mood="goals">
-        <main className="flex min-h-screen items-center justify-center text-sm text-secondary">
-          Loading goal…
-        </main>
-      </MoodCanvas>
+      <AppShell rightSlot={<UserButton />}>
+        <MoodCanvas mood="goals">
+          <main className="flex min-h-screen items-center justify-center text-sm text-secondary">
+            Loading goal…
+          </main>
+        </MoodCanvas>
+      </AppShell>
     );
   }
 
   if (!goal) {
     return (
-      <MoodCanvas mood="goals">
-        <main className="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
-          <p className="text-[var(--text)]">{error || "Goal not found."}</p>
-          <Link href="/goals" className="mt-4 inline-block text-sm text-primary">
-            Back to goals
-          </Link>
-        </main>
-      </MoodCanvas>
+      <AppShell rightSlot={<UserButton />}>
+        <MoodCanvas mood="goals">
+          <main className="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
+            <p className="text-[var(--text)]">{error || "Goal not found."}</p>
+            <Link href="/goals" className="mt-4 inline-block text-sm text-primary">
+              Back to goals
+            </Link>
+          </main>
+        </MoodCanvas>
+      </AppShell>
     );
   }
 
@@ -258,6 +261,7 @@ export default function GoalDetailPage() {
   const actionDone = goal.actions.filter((a) => a.completed).length;
 
   return (
+    <AppShell rightSlot={<UserButton />}>
     <MoodCanvas mood="goals">
     <div className="min-h-screen">
       <header className="sticky top-0 z-10 border-b border-[var(--border)] bg-surface/95 backdrop-blur">

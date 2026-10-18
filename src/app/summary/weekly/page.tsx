@@ -54,6 +54,6 @@ export default async function WeeklySummaryPage() {
         <WeeklyGlance data={ctx} />
       </main>
     </MoodCanvas>
-    </AppShell>
+      </AppShell>
   );
 }

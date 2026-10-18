@@ -81,6 +81,7 @@ export default async function MonthlyReviewPage() {
         />
       </main>
     </div>
+    </AppShell>
   );
 }
 
@@ -90,6 +91,5 @@ function Stat({ value, label }: { value: number; label: string }) {
       <p className="text-2xl font-semibold text-[var(--text)]">{value}</p>
       <p className="text-xs text-secondary">{label}</p>
     </div>
-    </AppShell>
   );
 }
