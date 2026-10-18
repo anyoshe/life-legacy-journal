@@ -20,6 +20,7 @@ type Letter = {
 export default function LettersPage() {
   const [letters, setLetters] = useState<Letter[]>([]);
   const [loading, setLoading] = useState(true);
+  const [recipient, setRecipient] = useState("");
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -50,10 +51,15 @@ export default function LettersPage() {
       const res = await fetch("/api/letters", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ subject, body }),
+        body: JSON.stringify({
+          recipient: recipient.trim(),
+          title: subject.trim() || null,
+          content: body,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Unable to save letter.");
+      setRecipient("");
       setSubject("");
       setBody("");
       await load();
@@ -69,7 +75,7 @@ export default function LettersPage() {
   return (
     <AppShell rightSlot={<UserButton />}>
       <MoodCanvas mood="letters">
-      <main className="mx-auto max-w-3xl space-y-6 px-4 py-8 sm:px-6">
+      <main className="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6">
         <PageMoodHeader
           accent="parchment"
           eyebrow="My Journal"
@@ -91,22 +97,33 @@ export default function LettersPage() {
         )}
 
         <form onSubmit={onSubmit} className="card space-y-3 p-5">
-          <label className="text-sm font-medium">
+          <label className="block text-sm font-medium">
+            To (recipient)
+            <input
+              required
+              value={recipient}
+              onChange={(e) => setRecipient(e.target.value)}
+              placeholder="e.g. My wife, Future self, Partner…"
+              className="input-field mt-1.5 w-full"
+            />
+          </label>
+          <label className="block text-sm font-medium">
             Subject
             <input
               value={subject}
               onChange={(e) => setSubject(e.target.value)}
-              className="input-field mt-1.5"
+              placeholder="Optional title"
+              className="input-field mt-1.5 w-full"
             />
           </label>
-          <label className="text-sm font-medium">
+          <label className="block text-sm font-medium">
             Letter
             <textarea
               required
               rows={6}
               value={body}
               onChange={(e) => setBody(e.target.value)}
-              className="input-field mt-1.5"
+              className="input-field mt-1.5 w-full"
             />
           </label>
           <button type="submit" disabled={saving} className="btn-primary disabled:opacity-50">

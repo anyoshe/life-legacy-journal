@@ -15,6 +15,8 @@ import { GoalHierarchyPanel } from "@/components/goals/GoalHierarchyPanel";
 import { GoalAlignmentPanel } from "@/components/goals/GoalAlignmentPanel";
 import { GoalRollupSummary } from "@/components/goals/GoalRollupSummary";
 import { MoodCanvas } from "@/components/ui/MoodCanvas";
+import { UserButton } from "@clerk/nextjs";
+import { AppShell } from "@/components/layout/AppShell";
 
 type Milestone = {
   id: string;
@@ -225,6 +227,7 @@ export default function GoalDetailPage() {
 
   if (loading) {
     return (
+    <AppShell rightSlot={<UserButton />}>
       <MoodCanvas mood="goals">
         <main className="flex min-h-screen items-center justify-center text-sm text-secondary">
           Loading goal…
@@ -236,7 +239,7 @@ export default function GoalDetailPage() {
   if (!goal) {
     return (
       <MoodCanvas mood="goals">
-        <main className="mx-auto max-w-2xl px-4 py-16 text-center">
+        <main className="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
           <p className="text-[var(--text)]">{error || "Goal not found."}</p>
           <Link href="/goals" className="mt-4 inline-block text-sm text-primary">
             Back to goals
@@ -258,7 +261,7 @@ export default function GoalDetailPage() {
     <MoodCanvas mood="goals">
     <div className="min-h-screen">
       <header className="sticky top-0 z-10 border-b border-[var(--border)] bg-surface/95 backdrop-blur">
-        <div className="mx-auto flex h-14 max-w-4xl items-center justify-between px-4">
+        <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4">
           <Link
             href="/goals"
             className="inline-flex items-center gap-1.5 text-sm text-secondary hover:text-primary"
@@ -270,7 +273,7 @@ export default function GoalDetailPage() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-4xl space-y-6 px-4 py-8">
+      <main className="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
         {error && (
           <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
             {error}
@@ -643,5 +646,6 @@ export default function GoalDetailPage() {
       </main>
     </div>
     </MoodCanvas>
+    </AppShell>
   );
 }

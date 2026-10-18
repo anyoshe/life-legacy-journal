@@ -12,7 +12,7 @@ export default async function ExportPage() {
 
   return (
     <AppShell rightSlot={<UserButton />}>
-      <main className="mx-auto max-w-3xl space-y-6 px-4 py-8 sm:px-6">
+      <main className="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
         <PageIntro
           eyebrow="My Data"
           title="Export your journal"

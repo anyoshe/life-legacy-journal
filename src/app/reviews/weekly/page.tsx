@@ -5,6 +5,8 @@ import { getCurrentDbUser } from "@/lib/auth";
 import { getWeekContext } from "@/lib/week-review";
 import { WeeklyGlance } from "@/components/WeeklyGlance";
 import { WeeklyReviewForm } from "./WeeklyReviewForm";
+import { UserButton } from "@clerk/nextjs";
+import { AppShell } from "@/components/layout/AppShell";
 
 function fmt(d: Date) {
   return new Intl.DateTimeFormat("en-GB", {
@@ -26,9 +28,10 @@ export default async function WeeklyReviewPage() {
       : {};
 
   return (
-    <div className="page-wash min-h-screen pb-nav">
+    <AppShell rightSlot={<UserButton />}>
+    <div className="min-h-screen">
       <header className="sticky top-0 z-10 border-b border-[var(--border)] bg-surface/95 backdrop-blur">
-        <div className="mx-auto flex h-14 max-w-3xl items-center justify-between px-4">
+        <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4">
           <Link
             href="/reviews"
             className="inline-flex items-center gap-1.5 text-sm text-secondary hover:text-primary"
@@ -42,7 +45,7 @@ export default async function WeeklyReviewPage() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-3xl space-y-8 px-4 py-8">
+      <main className="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
         <div>
           <p className="eyebrow mb-2">This week at a glance</p>
           <h1 className="text-2xl font-semibold tracking-tight text-[var(--text)]">
@@ -84,5 +87,6 @@ export default async function WeeklyReviewPage() {
         />
       </main>
     </div>
+    </AppShell>
   );
 }

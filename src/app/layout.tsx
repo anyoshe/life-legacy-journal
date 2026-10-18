@@ -1,18 +1,11 @@
 import type { Metadata } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
-import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
+/**
+ * System font stack — avoids next/font Google download at build time
+ * (fails offline / when fonts.google.com times out).
+ */
 export const metadata: Metadata = {
   title: {
     default: "Life & Legacy Journal",
@@ -30,9 +23,7 @@ export default function RootLayout({
   return (
     <ClerkProvider>
       <html lang="en" suppressHydrationWarning>
-        <body
-          className={`${geistSans.variable} ${geistMono.variable} page-wash min-h-screen antialiased text-[var(--text)]`}
-        >
+        <body className="page-wash min-h-screen antialiased text-[var(--text)] font-sans">
           {children}
         </body>
       </html>

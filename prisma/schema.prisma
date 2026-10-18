@@ -34,10 +34,21 @@ model User {
   updatedAt     DateTime  @updatedAt
 
   // Profile / Foundation
-  vision        String?   @db.Text
-  mission       String?   @db.Text
-  coreValues    String[]  // e.g. ["Faith", "Integrity", "Family"]
-  personalRules String[]  
+  vision           String?  @db.Text  // statement body
+  visionHeadline   String?
+  visionPillars    String[] @default([])
+  visionQuote      String?  @db.Text
+  mission          String?  @db.Text
+  coreValues       String[] // short names: Faith, Love...
+  valuesHeadline   String?
+  valuesQuote      String?  @db.Text
+  coreValueDetails Json?    // [{ "title": "...", "body": "..." }]
+  personalRules    String[]
+  rulesHeadline          String?
+  rulesSubtitle          String?
+  ruleDetails            Json?
+  rulesNonNegotiable     String?   @db.Text
+  rulesDailyCommitment   String?   @db.Text
 
   // Relations
   accounts      Account[]

@@ -1,0 +1,3 @@
+ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "valuesHeadline" TEXT;
+ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "valuesQuote" TEXT;
+ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "coreValueDetails" JSONB;

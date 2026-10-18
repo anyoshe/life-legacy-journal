@@ -1,0 +1,5 @@
+ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "rulesHeadline" TEXT;
+ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "rulesSubtitle" TEXT;
+ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "ruleDetails" JSONB;
+ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "rulesNonNegotiable" TEXT;
+ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "rulesDailyCommitment" TEXT;

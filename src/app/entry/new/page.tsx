@@ -124,7 +124,7 @@ export default function NewEntryPage() {
   return (
     <AppShell rightSlot={<UserButton />}>
       <MoodCanvas mood="journal">
-      <main className="mx-auto max-w-3xl space-y-6 px-4 py-6 sm:px-6 sm:py-8">
+      <main className="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
         <div className="rounded-2xl border border-[var(--border)] bg-surface/90 p-4 shadow-sm backdrop-blur-sm sm:p-6">
           <PageIntro
             eyebrow="A moment for yourself"

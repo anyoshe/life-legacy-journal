@@ -17,8 +17,9 @@ import {
   type TodayTodoItem,
 } from "@/components/dashboard/TodayTodos";
 import { AppShell } from "@/components/layout/AppShell";
-import { PageIntro } from "@/components/ui/PageIntro";
 import { MoodCanvas } from "@/components/ui/MoodCanvas";
+import { PageMoodHeader } from "@/components/ui/PageMoodHeader";
+import { StatStrip } from "@/components/ui/StatStrip";
 
 const activeStatuses = new Set<GoalStatus>([
   GoalStatus.ACTIVE,
@@ -131,9 +132,9 @@ export default async function TodayPage() {
   return (
     <AppShell rightSlot={<UserButton />}>
       <MoodCanvas mood="habits">
-      <main className="mx-auto max-w-3xl space-y-6 px-4 py-8 sm:px-6">
-        <div className="rounded-2xl border border-[var(--border)] bg-surface/90 p-4 shadow-sm backdrop-blur-sm sm:p-6">
-          <PageIntro
+        <main className="mx-auto max-w-7xl space-y-6 overflow-visible px-4 py-8 pb-28 sm:px-6 lg:px-8">
+          <PageMoodHeader
+            accent="sage"
             eyebrow={greeting()}
             title={firstName ? `${firstName}, here is today` : "Today"}
             description={new Intl.DateTimeFormat("en-GB", {
@@ -141,53 +142,83 @@ export default async function TodayPage() {
               day: "numeric",
               month: "long",
             }).format(now)}
+            action={
+              <Link
+                href="/entry/new"
+                className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-semibold text-[#14532d] shadow-sm"
+              >
+                Write a reflection
+              </Link>
+            }
           />
-        </div>
 
-        <p className="text-xs text-muted">
-          Todos {todosDone}/{todoItems.length} · Habits {habitsDone}/
-          {habitItems.length} · Actions {actionsDone}/{actionItems.length}
-        </p>
+          <StatStrip
+            items={[
+              {
+                label: "Todos",
+                value: `${todosDone}/${todoItems.length}`,
+                tone: "sage",
+              },
+              {
+                label: "Habits",
+                value: `${habitsDone}/${habitItems.length}`,
+                tone: "indigo",
+              },
+              {
+                label: "Actions",
+                value: `${actionsDone}/${actionItems.length}`,
+                tone: "gold",
+              },
+            ]}
+          />
 
-        <section className="card card-tint-sage space-y-3 p-4 sm:p-5">
-          <div className="flex items-center justify-between">
-            <h2 className="text-base font-semibold text-[var(--text)]">Day list</h2>
-            <span className="badge badge-sage">Todos</span>
+          {/* Todos full width so Add never clips; habits + actions side by side on lg */}
+          <section className="card space-y-3 overflow-visible p-5 shadow-sm sm:p-6">
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                <p className="text-[0.65rem] font-bold uppercase tracking-wide text-[var(--secondary)]">
+                  Day list
+                </p>
+                <h2 className="text-base font-semibold text-[var(--text)]">Todos</h2>
+              </div>
+              <span className="badge badge-sage">Today</span>
+            </div>
+            <TodayTodos items={todoItems} goals={goalOptions} />
+          </section>
+
+          <div className="grid gap-6 lg:grid-cols-2">
+            <section className="card space-y-3 p-5 shadow-sm sm:p-6">
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <p className="text-[0.65rem] font-bold uppercase tracking-wide text-primary">
+                    Consistency
+                  </p>
+                  <h2 className="text-base font-semibold text-[var(--text)]">Habits</h2>
+                </div>
+                <Link href="/habits" className="text-xs font-semibold text-primary hover:underline">
+                  Manage →
+                </Link>
+              </div>
+              <TodayHabits items={habitItems} />
+            </section>
+
+            <section className="card space-y-3 p-5 shadow-sm sm:p-6">
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <p className="text-[0.65rem] font-bold uppercase tracking-wide text-[var(--achievement)]">
+                    Progress
+                  </p>
+                  <h2 className="text-base font-semibold text-[var(--text)]">Goal actions</h2>
+                </div>
+                <Link href="/goals" className="text-xs font-semibold text-primary hover:underline">
+                  Goals →
+                </Link>
+              </div>
+              <p className="text-xs text-secondary">Work that moves your vision forward</p>
+              <TodayActions items={actionItems} />
+            </section>
           </div>
-          <TodayTodos items={todoItems} goals={goalOptions} />
-        </section>
-
-        <section className="card card-tint-indigo space-y-3 p-4 sm:p-5">
-          <div className="flex items-center justify-between">
-            <h2 className="text-base font-semibold text-[var(--text)]">Habits</h2>
-            <Link href="/habits" className="text-xs font-medium text-primary">
-              Manage
-            </Link>
-          </div>
-          <TodayHabits items={habitItems} />
-        </section>
-
-        <section className="card card-tint-gold space-y-3 p-4 sm:p-5">
-          <div className="flex items-center justify-between">
-            <h2 className="text-base font-semibold text-[var(--text)]">
-              Goal actions
-            </h2>
-            <Link href="/goals" className="text-xs font-medium text-primary">
-              Goals
-            </Link>
-          </div>
-          <p className="text-xs text-secondary">
-            Work that moves your vision forward
-          </p>
-          <TodayActions items={actionItems} />
-        </section>
-
-        <p className="text-center text-sm">
-          <Link href="/entry/new" className="font-medium text-primary hover:underline">
-            Write a reflection
-          </Link>
-        </p>
-      </main>
+        </main>
       </MoodCanvas>
     </AppShell>
   );

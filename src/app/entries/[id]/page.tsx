@@ -175,7 +175,7 @@ export default function EntryDetailPage() {
 
   if (!entry) {
     return (
-      <main className="mx-auto max-w-2xl px-4 py-16 text-center">
+      <main className="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
         <p className="text-[var(--text)]">{error || "Entry not found."}</p>
         <Link href="/entries" className="mt-4 inline-block text-sm text-primary">
           Back to journal
@@ -188,7 +188,7 @@ export default function EntryDetailPage() {
     <AppShell rightSlot={<UserButton />}>
       <MoodCanvas mood="journal">
       <header className="sticky top-0 z-10 border-b border-[var(--border)] bg-surface/95 backdrop-blur">
-        <div className="mx-auto flex h-14 max-w-3xl items-center justify-between px-4 sm:px-6">
+        <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 sm:px-6">
           <Link
             href="/entries"
             className="inline-flex items-center gap-1.5 text-sm text-secondary hover:text-primary"
@@ -223,7 +223,7 @@ export default function EntryDetailPage() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
+      <main className="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
         {error && (
           <p className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
             {error}

@@ -105,12 +105,10 @@ export function TodayTodos({
   });
 
   return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <p className="text-xs text-secondary">
-          {done}/{list.length} done · day list (not the same as goal actions)
-        </p>
-      </div>
+    <div className="space-y-3 overflow-visible">
+      <p className="text-xs text-secondary">
+        {done}/{list.length} done · day list (not the same as goal actions)
+      </p>
 
       {error && (
         <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
@@ -118,66 +116,77 @@ export function TodayTodos({
         </p>
       )}
 
-      <form onSubmit={onAdd} className="flex flex-col gap-2 rounded-xl border border-[var(--border)] bg-surface p-3 sm:flex-row sm:items-end">
-        <label className="flex-1 text-xs font-medium text-secondary">
+      {/* Always stacked — never horizontal squeeze that clips the Add button */}
+      <form
+        onSubmit={onAdd}
+        className="space-y-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3"
+      >
+        <label className="block text-xs font-medium text-secondary">
           Add for today
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Call, errand, reminder…"
-            className="input-field mt-1"
+            className="input-field mt-1 w-full min-w-0"
             required
           />
         </label>
-        <label className="text-xs font-medium text-secondary">
-          Time
-          <input
-            type="time"
-            value={timeOfDay}
-            onChange={(e) => setTimeOfDay(e.target.value)}
-            className="input-field mt-1 w-full sm:w-32"
-          />
-        </label>
-        <label className="text-xs font-medium text-secondary">
-          Goal (optional)
-          <select
-            value={goalId}
-            onChange={(e) => setGoalId(e.target.value)}
-            className="input-field mt-1 min-w-[10rem]"
-          >
-            <option value="">None</option>
-            {goals.map((g) => (
-              <option key={g.id} value={g.id}>
-                {g.title}
-              </option>
-            ))}
-          </select>
-        </label>
-        <button type="submit" disabled={adding} className="btn-primary shrink-0">
-          <Plus size={16} /> {adding ? "…" : "Add"}
+        <div className="grid grid-cols-2 gap-2">
+          <label className="block min-w-0 text-xs font-medium text-secondary">
+            Time
+            <input
+              type="time"
+              value={timeOfDay}
+              onChange={(e) => setTimeOfDay(e.target.value)}
+              className="input-field mt-1 w-full min-w-0"
+            />
+          </label>
+          <label className="block min-w-0 text-xs font-medium text-secondary">
+            Goal (optional)
+            <select
+              value={goalId}
+              onChange={(e) => setGoalId(e.target.value)}
+              className="input-field mt-1 w-full min-w-0"
+            >
+              <option value="">None</option>
+              {goals.map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.title}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+        <button
+          type="submit"
+          disabled={adding}
+          className="btn-primary flex w-full items-center justify-center gap-2 py-2.5 disabled:opacity-50"
+        >
+          <Plus size={16} aria-hidden />
+          {adding ? "Adding…" : "Add to today"}
         </button>
       </form>
 
       {sorted.length === 0 ? (
-        <div className="card p-4 text-sm text-secondary">
-          No timed day items yet. Goal work still lives under{" "}
-          <Link href="/goals" className="font-medium text-primary">
+        <p className="rounded-xl border border-dashed border-[var(--border)] px-3 py-4 text-sm text-secondary">
+          No day items yet. Goal work still lives under{" "}
+          <Link href="/goals" className="font-medium text-primary hover:underline">
             Actions
           </Link>
           .
-        </div>
+        </p>
       ) : (
         <ul className="space-y-2">
           {sorted.map((item) => (
             <li
               key={item.id}
-              className="flex items-start gap-3 rounded-xl border border-[var(--border)] bg-surface px-3 py-2.5"
+              className="flex items-start gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5"
             >
               <button
                 type="button"
                 disabled={pending === item.id}
                 onClick={() => void toggle(item)}
-                className="mt-0.5 text-primary disabled:opacity-40"
+                className="mt-0.5 shrink-0 text-primary disabled:opacity-40"
                 aria-label={item.completed ? "Mark incomplete" : "Mark complete"}
               >
                 {item.completed ? <Check size={18} /> : <Circle size={18} />}
@@ -208,7 +217,7 @@ export function TodayTodos({
                 type="button"
                 disabled={pending === item.id}
                 onClick={() => void remove(item.id)}
-                className="text-muted hover:text-danger"
+                className="shrink-0 text-muted hover:text-danger"
                 aria-label="Delete"
               >
                 <Trash2 size={16} />

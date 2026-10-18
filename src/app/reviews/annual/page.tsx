@@ -4,6 +4,8 @@ import { ReviewType, GoalStatus } from "@prisma/client";
 import { getCurrentDbUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { AnnualReviewForm } from "./AnnualReviewForm";
+import { UserButton } from "@clerk/nextjs";
+import { AppShell } from "@/components/layout/AppShell";
 
 export default async function AnnualReviewPage() {
   const user = await getCurrentDbUser();
@@ -49,8 +51,9 @@ export default async function AnnualReviewPage() {
       : {};
 
   return (
-    <div className="page-wash min-h-screen pb-nav">
-      <main className="mx-auto max-w-2xl px-4 py-10 sm:px-6">
+    <AppShell rightSlot={<UserButton />}>
+    <div className="min-h-screen">
+      <main className="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
         <Link href="/reviews" className="text-sm font-medium text-primary">
           ← Reviews
         </Link>
@@ -96,5 +99,6 @@ export default async function AnnualReviewPage() {
         </div>
       </main>
     </div>
+    </AppShell>
   );
 }

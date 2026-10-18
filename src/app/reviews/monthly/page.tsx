@@ -4,6 +4,8 @@ import { ArrowLeft } from "lucide-react";
 import { getCurrentDbUser } from "@/lib/auth";
 import { getMonthContext } from "@/lib/month-review";
 import { MonthlyReviewForm } from "./MonthlyReviewForm";
+import { UserButton } from "@clerk/nextjs";
+import { AppShell } from "@/components/layout/AppShell";
 
 function fmt(d: Date) {
   return new Intl.DateTimeFormat("en-GB", {
@@ -25,9 +27,10 @@ export default async function MonthlyReviewPage() {
       : {};
 
   return (
+    <AppShell rightSlot={<UserButton />}>
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-10 border-b border-[var(--border)] bg-surface/95 backdrop-blur">
-        <div className="mx-auto flex h-14 max-w-3xl items-center justify-between px-4">
+        <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4">
           <Link
             href="/reviews"
             className="inline-flex items-center gap-1.5 text-sm text-secondary hover:text-primary"
@@ -43,7 +46,7 @@ export default async function MonthlyReviewPage() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-3xl space-y-6 px-4 py-8">
+      <main className="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
         <div>
           <h1 className="text-2xl font-bold text-[var(--text)]">This month</h1>
           <p className="mt-1 text-sm text-secondary">
@@ -87,5 +90,6 @@ function Stat({ value, label }: { value: number; label: string }) {
       <p className="text-2xl font-semibold text-[var(--text)]">{value}</p>
       <p className="text-xs text-secondary">{label}</p>
     </div>
+    </AppShell>
   );
 }

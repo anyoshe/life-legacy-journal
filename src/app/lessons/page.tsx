@@ -96,7 +96,7 @@ export default function LessonsPage() {
   return (
     <AppShell rightSlot={<UserButton />}>
       <MoodCanvas mood="lessons">
-      <main className="mx-auto max-w-6xl space-y-6 px-4 py-8 pb-8 sm:px-6 lg:px-8">
+      <main className="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
         <div className="rounded-2xl border border-[var(--border)] bg-surface/90 p-4 shadow-sm backdrop-blur-sm sm:p-6">
           <PageIntro
             eyebrow="Wisdom to carry forward"

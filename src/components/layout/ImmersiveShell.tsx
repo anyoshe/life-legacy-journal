@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useId, useState, type ReactNode } from "react";
+import { Suspense, useEffect, useId, useState, type ReactNode } from "react";
 import { Menu, Sparkles, X } from "lucide-react";
 import {
   appNavItems,
   isNavActive,
   mobilePrimaryNav,
 } from "@/lib/nav-config";
+import { NavigationProgress } from "@/components/ui/NavigationProgress";
 
 /**
  * Layout B — slim dark icon rail + mobile bottom nav.
@@ -45,21 +46,52 @@ export function ImmersiveShell({
 
   return (
     <div className="page-wash min-h-screen">
+      <Suspense fallback={null}>
+        <NavigationProgress />
+      </Suspense>
       {/* Desktop icon rail */}
       <aside
-        className="fixed inset-y-0 left-0 z-30 hidden w-14 flex-col bg-[#1C1917] lg:flex"
+        className={
+          expanded
+            ? "fixed inset-y-0 left-0 z-30 hidden w-52 flex-col bg-[#1C1917] transition-[width] lg:flex"
+            : "fixed inset-y-0 left-0 z-30 hidden w-14 flex-col bg-[#1C1917] transition-[width] lg:flex"
+        }
         aria-label="Workspace navigation"
       >
-        <div className="flex h-14 items-center justify-center border-b border-white/10">
+        <div
+          className={
+            expanded
+              ? "flex h-14 items-center justify-between gap-2 border-b border-white/10 px-3"
+              : "flex h-14 items-center justify-center border-b border-white/10"
+          }
+        >
           <Link
             href="/dashboard"
-            className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-white"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary text-white"
             title="Life & Legacy"
           >
             <Sparkles size={14} aria-hidden />
           </Link>
+          {expanded && (
+            <span className="truncate text-xs font-semibold text-white/90">Life &amp; Legacy</span>
+          )}
+          <button
+            type="button"
+            onClick={() => setExpanded((v) => !v)}
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-white/60 hover:bg-white/10 hover:text-white"
+            aria-label={expanded ? "Collapse navigation" : "Expand navigation"}
+            title={expanded ? "Collapse" : "Expand"}
+          >
+            <Menu size={16} aria-hidden />
+          </button>
         </div>
-        <nav className="flex flex-1 flex-col items-center gap-1 overflow-y-auto py-3">
+        <nav
+          className={
+            expanded
+              ? "flex flex-1 flex-col gap-0.5 overflow-y-auto px-2 py-3"
+              : "flex flex-1 flex-col items-center gap-1 overflow-y-auto py-3"
+          }
+        >
           {appNavItems.map((item) => {
             const active = isNavActive(pathname, item.href);
             const Icon = item.icon;
@@ -69,23 +101,37 @@ export function ImmersiveShell({
                 href={item.href}
                 title={item.label}
                 className={
-                  active
-                    ? "group relative flex h-10 w-10 items-center justify-center rounded-xl bg-white/15 text-white"
-                    : "group relative flex h-10 w-10 items-center justify-center rounded-xl text-white/55 transition-colors hover:bg-white/10 hover:text-white"
+                  expanded
+                    ? active
+                      ? "flex items-center gap-3 rounded-xl bg-white/15 px-3 py-2.5 text-sm font-semibold text-white"
+                      : "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/60 transition-colors hover:bg-white/10 hover:text-white"
+                    : active
+                      ? "group relative flex h-10 w-10 items-center justify-center rounded-xl bg-white/15 text-white"
+                      : "group relative flex h-10 w-10 items-center justify-center rounded-xl text-white/55 transition-colors hover:bg-white/10 hover:text-white"
                 }
                 aria-current={active ? "page" : undefined}
                 aria-label={item.label}
               >
-                <Icon size={18} strokeWidth={active ? 2.25 : 1.75} aria-hidden />
-                <span className="pointer-events-none absolute left-full z-50 ml-2 hidden whitespace-nowrap rounded-md bg-[#1C1917] px-2 py-1 text-xs text-white shadow-lg group-hover:block">
-                  {item.label}
-                </span>
+                <Icon size={18} strokeWidth={active ? 2.25 : 1.75} className="shrink-0" aria-hidden />
+                {expanded ? (
+                  <span className="truncate">{item.label}</span>
+                ) : (
+                  <span className="pointer-events-none absolute left-full z-50 ml-2 hidden whitespace-nowrap rounded-md bg-[#1C1917] px-2 py-1 text-xs text-white shadow-lg group-hover:block">
+                    {item.label}
+                  </span>
+                )}
               </Link>
             );
           })}
         </nav>
         {rightSlot && (
-          <div className="flex justify-center border-t border-white/10 p-3">
+          <div
+            className={
+              expanded
+                ? "flex items-center gap-2 border-t border-white/10 p-3"
+                : "flex justify-center border-t border-white/10 p-3"
+            }
+          >
             {rightSlot}
           </div>
         )}
@@ -104,7 +150,7 @@ export function ImmersiveShell({
         <div className="flex items-center gap-2">{rightSlot}</div>
       </header>
 
-      <div className="lg:pl-14">
+      <div className={expanded ? "lg:pl-52" : "lg:pl-14"}>
         <div className="pb-nav min-h-screen">{children}</div>
       </div>
 

@@ -14,6 +14,7 @@ import {
   type TodayHabitItem,
 } from "@/components/dashboard/TodayHabits";
 import { DashboardTopNav } from "@/components/layout/DashboardTopNav";
+import { RulesCompassCard } from "@/components/dashboard/RulesCompassCard";
 import { lifeAreaMood } from "@/lib/nav-config";
 
 const activeGoalStatuses = new Set<GoalStatus>([
@@ -152,6 +153,40 @@ export default async function DashboardPage() {
   const firstName = user.name?.trim().split(/\s+/)[0] || null;
   const habitsDone = habitItems.filter((h) => h.doneToday).length;
   const relationshipPending = pendingCouples.length > 0;
+  const visionHeadline = (user as { visionHeadline?: string | null }).visionHeadline?.trim() || "";
+  const visionPillars = (user as { visionPillars?: string[] }).visionPillars ?? [];
+  const visionQuote = (user as { visionQuote?: string | null }).visionQuote?.trim() || "";
+  const hasVision =
+    Boolean(user.vision?.trim()) ||
+    Boolean(visionHeadline) ||
+    visionPillars.length > 0 ||
+    Boolean(visionQuote);
+  const hasMission = Boolean(user.mission?.trim());
+  const values = user.coreValues ?? [];
+  const valuesQuote =
+    (user as { valuesQuote?: string | null }).valuesQuote?.trim() || "";
+  const rulesHeadline =
+    (user as { rulesHeadline?: string | null }).rulesHeadline?.trim() || "";
+  const ruleDetails = (
+    (user as { ruleDetails?: { title?: string; body?: string }[] | null }).ruleDetails ??
+    []
+  );
+  const ruleTitles =
+    ruleDetails.length > 0
+      ? ruleDetails.map((d) => (d.title || "").trim()).filter(Boolean)
+      : (user.personalRules ?? []);
+  const rulesDailyCommitment =
+    (user as { rulesDailyCommitment?: string | null }).rulesDailyCommitment?.trim() ||
+    "";
+  const hasRules =
+    ruleTitles.length > 0 ||
+    Boolean(rulesHeadline) ||
+    Boolean(rulesDailyCommitment);
+  const hasValues =
+    values.length > 0 ||
+    Boolean(valuesQuote) ||
+    Boolean((user as { valuesHeadline?: string | null }).valuesHeadline?.trim());
+  const rules = ruleTitles;
 
   const goalsByArea = new Map<GoalArea, typeof activeGoals>();
   for (const g of activeGoals) {
@@ -164,18 +199,18 @@ export default async function DashboardPage() {
     <div className="page-wash min-h-screen pb-nav">
       <DashboardTopNav rightSlot={<UserButton />} />
 
-      <main className="mx-auto max-w-6xl space-y-6 px-4 py-6 sm:px-6 lg:px-8">
+      <main className="mx-auto max-w-6xl space-y-10 px-4 py-8 sm:px-6">
         {/* A. Welcome — compact */}
-        <header className="flex flex-wrap items-end justify-between gap-3">
-          <div>
+        <header className="flex flex-wrap items-end justify-between gap-4 pb-1">
+          <div className="space-y-1">
             <p className="text-sm font-medium text-secondary">
               {getGreeting(now.getHours())}
               {firstName ? `, ${firstName}` : ""}
             </p>
-            <h1 className="text-xl font-semibold tracking-tight text-[var(--text)] sm:text-2xl">
+            <h1 className="text-2xl font-semibold tracking-tight text-[var(--text)] sm:text-3xl">
               Your life map
             </h1>
-            <p className="mt-0.5 text-xs text-muted">
+            <p className="text-sm text-muted">
               {new Intl.DateTimeFormat("en-GB", {
                 weekday: "long",
                 day: "numeric",
@@ -183,30 +218,153 @@ export default async function DashboardPage() {
               }).format(now)}
             </p>
           </div>
-          <Link href="/entry/new" className="btn-primary text-sm">
+          <Link href="/entry/new" className="btn-primary rounded-full px-5 text-sm shadow-sm">
             Write today
           </Link>
         </header>
 
-        {/* B. Three metrics only */}
-        <section className="grid grid-cols-3 gap-3">
-          <div className="card px-3 py-3 text-center sm:px-4">
-            <p className="text-xl font-semibold text-primary sm:text-2xl">
+        {/* A2. Foundation compass — display hierarchy; edit on /foundation */}
+        <section>
+          <div className="mb-4 flex items-center justify-between gap-2">
+            <div>
+              <p className="eyebrow text-primary/80">Foundation</p>
+              <h2 className="text-lg font-semibold tracking-tight text-[var(--text)]">Your compass</h2>
+            </div>
+            <Link
+              href="/foundation"
+              className="text-xs font-medium text-primary hover:underline"
+            >
+              {hasVision || hasMission || hasValues || hasRules
+                ? "View or edit →"
+                : "Write foundation →"}
+            </Link>
+          </div>
+
+          {!(hasVision || hasMission || hasValues || hasRules) ? (
+            <Link
+              href="/foundation"
+              className="card-interactive block rounded-2xl border border-dashed border-[var(--border)] bg-[var(--surface)]/80 p-8 text-center shadow-sm"
+            >
+              <p className="text-sm font-semibold text-[var(--text)]">
+                Start with vision, mission, values, and rules
+              </p>
+              <p className="mt-1 text-xs text-secondary">
+                Hierarchy begins here — then goals and daily actions follow.
+              </p>
+            </Link>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2">
+              {hasVision && (
+                <Link
+                  href="/foundation#vision"
+                  className="card-interactive block space-y-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)]/95 p-5 shadow-sm transition hover:border-primary/20 hover:shadow-md sm:col-span-2"
+                >
+                  <p className="text-[0.65rem] font-bold uppercase tracking-wide text-primary">
+                    Vision
+                  </p>
+                  {visionHeadline ? (
+                    <p className="text-lg font-bold uppercase tracking-wide text-[var(--text)] sm:text-xl">
+                      {clip(visionHeadline, 80)}
+                    </p>
+                  ) : null}
+                  {visionPillars.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {visionPillars.slice(0, 5).map((p) => (
+                        <span
+                          key={p}
+                          className="rounded-full bg-[var(--private-bg)] px-3 py-1 text-xs font-semibold text-primary"
+                        >
+                          {p}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  {user.vision?.trim() ? (
+                    <p className="line-clamp-2 text-sm font-medium leading-snug text-[var(--text)]">
+                      {clip(user.vision, 160)}
+                    </p>
+                  ) : null}
+                  {visionQuote ? (
+                    <p className="line-clamp-2 border-l-2 border-primary/30 pl-2 text-xs italic text-secondary">
+                      “{clip(visionQuote, 100)}”
+                    </p>
+                  ) : null}
+                </Link>
+              )}
+              {hasMission && (
+                <Link
+                  href="/foundation#mission"
+                  className="card-interactive block rounded-2xl border border-[var(--border)] bg-[var(--surface)]/95 p-5 shadow-sm transition hover:border-primary/20 hover:shadow-md"
+                >
+                  <p className="text-[0.65rem] font-bold uppercase tracking-wide text-[var(--secondary)] italic">
+                    Mission
+                  </p>
+                  <p className="mt-2 line-clamp-3 text-sm font-semibold leading-snug text-[var(--text)]">
+                    {clip(user.mission, 140)}
+                  </p>
+                </Link>
+              )}
+              {hasValues && (
+                <Link
+                  href="/foundation#values"
+                  className="card-interactive block space-y-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)]/95 p-5 shadow-sm transition hover:border-primary/20 hover:shadow-md"
+                >
+                  <p className="text-[0.65rem] font-bold uppercase tracking-wide text-[var(--achievement)]">
+                    Values
+                  </p>
+                  {values.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {values.slice(0, 8).map((v) => (
+                        <span
+                          key={v}
+                          className="rounded-full bg-[var(--private-bg)] px-3 py-1 text-xs font-semibold text-primary"
+                        >
+                          {v}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  {valuesQuote ? (
+                    <p className="line-clamp-3 border-l-2 border-[var(--achievement)]/40 pl-2 text-xs italic leading-snug text-secondary">
+                      “{clip(valuesQuote, 160)}”
+                    </p>
+                  ) : null}
+                </Link>
+              )}
+              {hasRules && (
+                <RulesCompassCard
+                  rulesHeadline={rulesHeadline || null}
+                  ruleTitles={ruleTitles}
+                  dailyCommitment={rulesDailyCommitment || null}
+                />
+              )}
+            </div>
+          )}
+        </section>
+
+        {/* B. Metrics — soft strip */}
+        <section className="grid grid-cols-3 gap-3 sm:gap-4">
+          <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)]/95 px-3 py-4 text-center shadow-sm sm:px-4">
+            <p className="text-2xl font-semibold tracking-tight text-primary sm:text-3xl">
               {entryCount}
             </p>
-            <p className="text-[0.65rem] text-secondary sm:text-xs">Reflections</p>
+            <p className="mt-1 text-[0.65rem] font-medium uppercase tracking-wide text-secondary sm:text-xs">
+              Reflections
+            </p>
           </div>
-          <div className="card px-3 py-3 text-center sm:px-4">
-            <p className="text-xl font-semibold text-[var(--secondary)] sm:text-2xl">
+          <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)]/95 px-3 py-4 text-center shadow-sm sm:px-4">
+            <p className="text-2xl font-semibold tracking-tight text-[var(--secondary)] sm:text-3xl">
               {habitsDone}/{habitItems.length || 0}
             </p>
-            <p className="text-[0.65rem] text-secondary sm:text-xs">Habits today</p>
+            <p className="mt-1 text-[0.65rem] font-medium uppercase tracking-wide text-secondary sm:text-xs">
+              Habits today
+            </p>
           </div>
-          <div className="card px-3 py-3 text-center sm:px-4">
+          <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)]/95 px-3 py-4 text-center shadow-sm sm:px-4">
             <p className="text-xl font-semibold text-[var(--text)] sm:text-2xl">
               {activeGoals.length}
             </p>
-            <p className="text-[0.65rem] text-secondary sm:text-xs">Active goals</p>
+            <p className="mt-1 text-[0.65rem] font-medium uppercase tracking-wide text-secondary sm:text-xs">Active goals</p>
           </div>
         </section>
 
@@ -214,7 +372,7 @@ export default async function DashboardPage() {
         <section>
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-[var(--text)]">
-              Life areas
+              Goals by life area
             </h2>
             <Link href="/goals" className="text-xs font-medium text-primary">
               All goals
@@ -286,33 +444,21 @@ export default async function DashboardPage() {
             )}
           </div>
 
-          <div className="card space-y-3 p-4 lg:col-span-2">
-            <h2 className="text-sm font-semibold text-[var(--text)]">Direction</h2>
-            {user.vision?.trim() ? (
-              <p className="text-sm leading-relaxed text-secondary">
-                {clip(user.vision, 160)}
-              </p>
-            ) : (
-              <p className="text-sm text-secondary">
-                Set a short vision to orient every goal.
-              </p>
-            )}
-            <Link href="/foundation" className="text-xs font-medium text-primary">
-              Foundation →
-            </Link>
-            <div className="border-t border-[var(--border)] pt-3">
-              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">
-                Together
-              </h3>
-              <p className="mt-1 text-xs text-secondary">
-                {couple
-                  ? "Linked — share only what you choose."
-                  : relationshipPending
-                    ? "Invitation pending."
-                    : "Optional partner space."}
-              </p>
-              <Link href="/couple" className="mt-1 inline-block text-xs font-medium text-primary">
-                Couple →
+          <div className="card card-tint-rose space-y-3 p-4 lg:col-span-2">
+            <h2 className="text-sm font-semibold text-[var(--text)]">Together</h2>
+            <p className="text-sm text-secondary">
+              {couple
+                ? "You are linked. Share only what you choose — private stays private."
+                : relationshipPending
+                  ? "An invitation is waiting in Couple."
+                  : "Optional partner space. Fully usable on your own."}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Link href="/couple" className="btn-secondary text-xs">
+                Couple
+              </Link>
+              <Link href="/letters" className="btn-secondary text-xs">
+                Letters
               </Link>
             </div>
           </div>

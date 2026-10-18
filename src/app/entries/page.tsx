@@ -6,7 +6,7 @@ import { MoodCanvas } from "@/components/ui/MoodCanvas";
 import { PageIntro } from "@/components/ui/PageIntro";
 import { Suspense, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   BookOpen,
   ChevronLeft,
@@ -62,6 +62,7 @@ function formatDate(value: string) {
 
 function JournalHistoryInner() {
   const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
 
   const [entries, setEntries] = useState<EntryListItem[]>([]);
@@ -95,7 +96,11 @@ function JournalHistoryInner() {
   });
 
   const loadEntries = useCallback(
-    async (pageNum: number, filters: typeof applied) => {
+    async (
+      pageNum: number,
+      filters: typeof applied,
+      signal?: AbortSignal,
+    ) => {
       setLoading(true);
       setError(null);
       try {
@@ -112,7 +117,10 @@ function JournalHistoryInner() {
         if (filters.from) params.set("from", filters.from);
         if (filters.to) params.set("to", filters.to);
 
-        const response = await fetch(`/api/entries?${params.toString()}`);
+        const response = await fetch(`/api/entries?${params.toString()}`, {
+          signal,
+        });
+        if (signal?.aborted) return;
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || "Unable to load journal.");
 
@@ -120,18 +128,25 @@ function JournalHistoryInner() {
         setPagination(
           data.pagination ?? { page: 1, pageSize: 20, total: 0, totalPages: 1 },
         );
-        router.replace(`/entries?${params.toString()}`, { scroll: false });
+        // Never force URL if user already left Journal (was jumping back from Dreams etc.)
+        if (typeof window !== "undefined" && window.location.pathname.startsWith("/entries")) {
+          router.replace(`/entries?${params.toString()}`, { scroll: false });
+        }
       } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        if (signal?.aborted) return;
         setError(err instanceof Error ? err.message : "Unable to load journal.");
       } finally {
-        setLoading(false);
+        if (!signal?.aborted) setLoading(false);
       }
     },
     [router],
   );
 
   useEffect(() => {
-    void loadEntries(page, applied);
+    const ac = new AbortController();
+    void loadEntries(page, applied, ac.signal);
+    return () => ac.abort();
   }, [page, applied, loadEntries]);
 
   function applyFilters(event: React.FormEvent) {
@@ -163,7 +178,7 @@ function JournalHistoryInner() {
   return (
     <AppShell rightSlot={<UserButton />}>
       <MoodCanvas mood="journal">
-      <main className="mx-auto max-w-6xl space-y-6 px-4 py-8 pb-8 sm:px-6 lg:px-8">
+      <main className="mx-auto max-w-7xl space-y-6 px-4 py-8 pb-8 sm:px-6 lg:px-8">
         <PageIntro
           eyebrow="Your personal archive"
           title="Journal"
