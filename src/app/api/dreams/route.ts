@@ -9,7 +9,12 @@ const createSchema = z
     kind: z.nativeEnum(DreamKind),
     title: z.string().trim().max(200).optional().nullable(),
     content: z.string().trim().min(1).max(20000),
-    date: z.string().optional(), // YYYY-MM-DD
+    date: z.string().optional(), // YYYY-MM-DD — when dreamed / intended
+    timeOfDay: z
+      .string()
+      .regex(/^([01]\d|2[0-3]):[0-5]\d$/)
+      .optional()
+      .nullable(), // HH:mm — when dreamed
     feelings: z.string().trim().max(500).optional().nullable(),
     meaning: z.string().trim().max(5000).optional().nullable(),
     tags: z.array(z.string().trim().max(40)).max(12).optional(),
@@ -32,7 +37,7 @@ export async function GET(request: NextRequest) {
       ...(kind ? { kind } : {}),
     },
     orderBy: [{ date: "desc" }, { createdAt: "desc" }],
-    take: 50,
+    take: 80,
   });
 
   return NextResponse.json({ dreams });
@@ -66,18 +71,42 @@ export async function POST(request: NextRequest) {
     date = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
   }
 
-  const dream = await prisma.dream.create({
-    data: {
-      userId: user.id,
-      kind: data.kind,
-      title: data.title?.trim() || null,
-      content: data.content.trim(),
-      date,
-      feelings: data.feelings?.trim() || null,
-      meaning: data.meaning?.trim() || null,
-      tags: data.tags?.map((t) => t.trim()).filter(Boolean) ?? [],
-    },
-  });
+  const createData: Record<string, unknown> = {
+    userId: user.id,
+    kind: data.kind,
+    title: data.title?.trim() || null,
+    content: data.content.trim(),
+    date,
+    feelings: data.feelings?.trim() || null,
+    meaning: data.meaning?.trim() || null,
+    tags: data.tags?.map((t) => t.trim()).filter(Boolean) ?? [],
+  };
 
-  return NextResponse.json({ dream }, { status: 201 });
+  // timeOfDay only if column exists (after db push)
+  if (data.timeOfDay) {
+    createData.timeOfDay = data.timeOfDay;
+  }
+
+  try {
+    const dream = await prisma.dream.create({
+      data: createData as Parameters<typeof prisma.dream.create>[0]["data"],
+    });
+    return NextResponse.json({ dream }, { status: 201 });
+  } catch (err) {
+    // Retry without timeOfDay if column not migrated yet
+    console.error("Dream create failed, retry without timeOfDay:", err);
+    delete createData.timeOfDay;
+    try {
+      const dream = await prisma.dream.create({
+        data: createData as Parameters<typeof prisma.dream.create>[0]["data"],
+      });
+      return NextResponse.json({ dream }, { status: 201 });
+    } catch (err2) {
+      console.error("Dream create failed:", err2);
+      return NextResponse.json(
+        { error: "Could not save dream. Ensure Dream model exists (prisma db push)." },
+        { status: 500 },
+      );
+    }
+  }
 }

@@ -1,7 +1,8 @@
 "use client";
 
 import { UserButton } from "@clerk/nextjs";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import { ChevronDown, ChevronUp } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { MoodCanvas } from "@/components/ui/MoodCanvas";
 import { PageMoodHeader } from "@/components/ui/PageMoodHeader";
@@ -12,17 +13,59 @@ type Dream = {
   kind: string;
   title: string | null;
   content: string;
-  date?: string;
+  date: string;
+  timeOfDay?: string | null;
+  createdAt: string;
+  feelings?: string | null;
+  meaning?: string | null;
 };
+
+function todayInput() {
+  const n = new Date();
+  const y = n.getFullYear();
+  const m = String(n.getMonth() + 1).padStart(2, "0");
+  const d = String(n.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function fmtDate(iso: string) {
+  try {
+    const d = new Date(iso);
+    return new Intl.DateTimeFormat("en-GB", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    }).format(d);
+  } catch {
+    return iso;
+  }
+}
+
+function fmtWritten(iso: string) {
+  try {
+    return new Intl.DateTimeFormat("en-GB", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(new Date(iso));
+  } catch {
+    return iso;
+  }
+}
 
 export default function DreamsPage() {
   const [dreams, setDreams] = useState<Dream[]>([]);
   const [loading, setLoading] = useState(true);
-  const [kind, setKind] = useState("DAY_INTENTION");
+  const [kind, setKind] = useState("NIGHT_DREAM");
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
+  const [dreamDate, setDreamDate] = useState(todayInput());
+  const [timeOfDay, setTimeOfDay] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   async function load() {
     try {
@@ -49,12 +92,20 @@ export default function DreamsPage() {
       const res = await fetch("/api/dreams", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ kind, title: title || undefined, content }),
+        body: JSON.stringify({
+          kind,
+          title: title.trim() || null,
+          content,
+          date: dreamDate || undefined,
+          timeOfDay: timeOfDay || null,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Unable to save.");
       setTitle("");
       setContent("");
+      setTimeOfDay("");
+      setDreamDate(todayInput());
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to save.");
@@ -63,73 +114,164 @@ export default function DreamsPage() {
     }
   }
 
-  const day = dreams.filter((d) => String(d.kind).includes("DAY"));
-  const night = dreams.filter((d) => String(d.kind).includes("NIGHT"));
+  const day = useMemo(
+    () => dreams.filter((d) => d.kind === "DAY_INTENTION"),
+    [dreams],
+  );
+  const night = useMemo(
+    () => dreams.filter((d) => d.kind === "NIGHT_DREAM"),
+    [dreams],
+  );
 
   return (
     <AppShell rightSlot={<UserButton />}>
-      <MoodCanvas mood="dreams">
-      <main className="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
-        <PageMoodHeader
-          accent="sky"
-          eyebrow="My Journal"
-          title="Dreams"
-          description="Day intentions and night dreams that shape who you become."
-        />
-        <StatStrip
-          items={[
-            { label: "Day intentions", value: day.length, tone: "indigo" },
-            { label: "Night dreams", value: night.length, tone: "gold" },
-            { label: "Total", value: dreams.length },
-          ]}
-        />
-        {error && (
-          <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
-            {error}
-          </p>
-        )}
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] lg:items-start">
-        <form onSubmit={onSubmit} className="card space-y-3 p-5">
-          <label className="text-sm font-medium">
-            Kind
-            <select value={kind} onChange={(e) => setKind(e.target.value)} className="input-field mt-1.5">
-              <option value="DAY_INTENTION">Day intention</option>
-              <option value="NIGHT_DREAM">Night dream</option>
-            </select>
-          </label>
-          <label className="text-sm font-medium">
-            Title (optional)
-            <input value={title} onChange={(e) => setTitle(e.target.value)} className="input-field mt-1.5" />
-          </label>
-          <label className="text-sm font-medium">
-            What did you dream or intend?
-            <textarea required rows={4} value={content} onChange={(e) => setContent(e.target.value)} className="input-field mt-1.5" />
-          </label>
-          <button type="submit" disabled={saving} className="btn-primary disabled:opacity-50">
-            {saving ? "Saving…" : "Save"}
-          </button>
-        </form>
-        {loading ? (
-          <p className="text-sm text-secondary">Loading…</p>
-        ) : dreams.length === 0 ? (
-          <div className="card p-8 text-center text-sm text-secondary">
-            Capture a day intention or a night dream when you are ready.
+      <MoodCanvas mood="habits">
+        <main className="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
+          <PageMoodHeader
+            accent="indigo"
+            eyebrow="My Journal"
+            title="Dreams"
+            description="Day intentions and night dreams — dated so you can track patterns over time."
+          />
+
+          <StatStrip
+            items={[
+              { label: "Day intentions", value: day.length, tone: "indigo" },
+              { label: "Night dreams", value: night.length, tone: "gold" },
+              { label: "Total", value: dreams.length },
+            ]}
+          />
+
+          {error && (
+            <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+              {error}
+            </p>
+          )}
+
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:items-start">
+            <form onSubmit={onSubmit} className="card space-y-3 p-5">
+              <label className="block text-sm font-medium">
+                Kind
+                <select
+                  value={kind}
+                  onChange={(e) => setKind(e.target.value)}
+                  className="input-field mt-1.5 w-full"
+                >
+                  <option value="DAY_INTENTION">Day intention</option>
+                  <option value="NIGHT_DREAM">Night dream</option>
+                </select>
+              </label>
+              <label className="block text-sm font-medium">
+                Title (optional)
+                <input
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  className="input-field mt-1.5 w-full"
+                  placeholder="Short label"
+                />
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                <label className="block text-sm font-medium">
+                  When dreamed / intended
+                  <input
+                    type="date"
+                    required
+                    value={dreamDate}
+                    onChange={(e) => setDreamDate(e.target.value)}
+                    className="input-field mt-1.5 w-full"
+                  />
+                </label>
+                <label className="block text-sm font-medium">
+                  Time (optional)
+                  <input
+                    type="time"
+                    value={timeOfDay}
+                    onChange={(e) => setTimeOfDay(e.target.value)}
+                    className="input-field mt-1.5 w-full"
+                  />
+                </label>
+              </div>
+              <p className="text-xs text-muted">
+                Written time is saved automatically when you press Save.
+              </p>
+              <label className="block text-sm font-medium">
+                What did you dream or intend?
+                <textarea
+                  required
+                  rows={5}
+                  value={content}
+                  onChange={(e) => setContent(e.target.value)}
+                  className="input-field mt-1.5 w-full"
+                />
+              </label>
+              <button type="submit" disabled={saving} className="btn-primary w-full disabled:opacity-50">
+                {saving ? "Saving…" : "Save"}
+              </button>
+            </form>
+
+            {loading ? (
+              <p className="text-sm text-secondary">Loading…</p>
+            ) : dreams.length === 0 ? (
+              <div className="card p-8 text-center text-sm text-secondary">
+                Capture a day intention or a night dream when you are ready.
+              </div>
+            ) : (
+              <ul className="space-y-2">
+                {dreams.map((d) => {
+                  const open = expandedId === d.id;
+                  const label = d.title?.trim() || "Untitled";
+                  const dreamedLabel = [
+                    fmtDate(d.date),
+                    d.timeOfDay ? `at ${d.timeOfDay}` : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" ");
+                  return (
+                    <li key={d.id} className="card p-4">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[0.65rem] font-bold uppercase tracking-wide text-secondary">
+                            {String(d.kind).replaceAll("_", " ")}
+                          </p>
+                          <p className="mt-0.5 font-semibold text-[var(--text)]">
+                            {label}
+                          </p>
+                          <p className="mt-1 text-xs text-secondary">
+                            Dreamed {dreamedLabel}
+                            <span className="text-muted">
+                              {" "}
+                              · written {fmtWritten(d.createdAt)}
+                            </span>
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setExpandedId(open ? null : d.id)}
+                          className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-primary hover:underline"
+                        >
+                          {open ? (
+                            <>
+                              <ChevronUp size={14} /> See less
+                            </>
+                          ) : (
+                            <>
+                              <ChevronDown size={14} /> See more
+                            </>
+                          )}
+                        </button>
+                      </div>
+                      {open && (
+                        <p className="mt-3 whitespace-pre-wrap border-t border-[var(--border)] pt-3 text-sm leading-relaxed text-secondary">
+                          {d.content}
+                        </p>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
           </div>
-        ) : (
-          <ul className="grid gap-3 sm:grid-cols-2">
-            {dreams.map((d) => (
-              <li key={d.id} className="card card-tint-indigo p-4">
-                <p className="text-xs font-medium uppercase tracking-wide text-secondary">
-                  {String(d.kind).replaceAll("_", " ")}
-                </p>
-                <p className="mt-1 font-medium text-[var(--text)]">{d.title || "Untitled"}</p>
-                <p className="mt-1 line-clamp-3 text-sm text-secondary">{d.content}</p>
-              </li>
-            ))}
-          </ul>
-        )}
-        </div>
-      </main>
+        </main>
       </MoodCanvas>
     </AppShell>
   );

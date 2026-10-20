@@ -3,14 +3,7 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import {
-  ArrowLeft,
-  Check,
-  Circle,
-  Plus,
-  Target,
-  Trash2,
-} from "lucide-react";
+import { ArrowLeft, Check, Circle, Pencil, Plus, Target, Trash2, X } from "lucide-react";
 import { GoalHierarchyPanel } from "@/components/goals/GoalHierarchyPanel";
 import { GoalAlignmentPanel } from "@/components/goals/GoalAlignmentPanel";
 import { GoalRollupSummary } from "@/components/goals/GoalRollupSummary";
@@ -116,6 +109,55 @@ export default function GoalDetailPage() {
   const [actionTime, setActionTime] = useState("");
   const [actionContribution, setActionContribution] = useState("");
   const [currentValueInput, setCurrentValueInput] = useState("");
+  const [editing, setEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState("");
+  const [editWhy, setEditWhy] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editTarget, setEditTarget] = useState("");
+  const [editUnit, setEditUnit] = useState("");
+  const [editDeadline, setEditDeadline] = useState("");
+  const [editStatus, setEditStatus] = useState("");
+
+  function startEdit(g: Goal) {
+    setEditTitle(g.title);
+    setEditWhy(g.why ?? "");
+    setEditDescription(g.description ?? "");
+    setEditTarget(g.targetValue != null ? String(g.targetValue) : "");
+    setEditUnit(g.unit ?? "");
+    setEditDeadline(g.deadline ? g.deadline.slice(0, 10) : "");
+    setEditStatus(g.status);
+    setEditing(true);
+  }
+
+  async function saveGoalEdit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editTitle.trim()) {
+      setError("Title is required.");
+      return;
+    }
+    const body: Record<string, unknown> = {
+      title: editTitle.trim(),
+      why: editWhy.trim() || null,
+      description: editDescription.trim() || null,
+      unit: editUnit.trim() || null,
+      status: editStatus || undefined,
+      deadline: editDeadline
+        ? new Date(editDeadline + "T12:00:00.000Z").toISOString()
+        : null,
+    };
+    if (editTarget.trim() !== "") {
+      const n = Number(editTarget);
+      if (!Number.isFinite(n) || n < 0) {
+        setError("Target must be a non-negative number.");
+        return;
+      }
+      body.targetValue = n;
+    } else {
+      body.targetValue = null;
+    }
+    const ok = await patch(body);
+    if (ok) setEditing(false);
+  }
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -284,52 +326,167 @@ export default function GoalDetailPage() {
           </p>
         )}
 
-        {/* Overview */}
+        {/* Overview — view or edit core fields */}
         <section className="rounded-2xl border border-[var(--border)] bg-surface p-6">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-primary">
                 {goal.area.replaceAll("_", " ")} · {goal.type.replaceAll("_", " ")}
               </p>
-              <h1 className="mt-1 text-2xl font-bold tracking-tight text-[var(--text)]">
-                {goal.title}
-              </h1>
+              {!editing && (
+                <h1 className="mt-1 text-2xl font-bold tracking-tight text-[var(--text)]">
+                  {goal.title}
+                </h1>
+              )}
             </div>
-            <select
-              value={goal.status}
-              disabled={saving || !goal.canEdit}
-              onChange={(e) => void patch({ status: e.target.value })}
-              className="rounded-lg border border-[var(--border)] bg-background px-3 py-1.5 text-sm"
-            >
-              {STATUSES.map((s) => (
-                <option key={s} value={s}>
-                  {s.replaceAll("_", " ")}
-                </option>
-              ))}
-            </select>
+            <div className="flex flex-wrap items-center gap-2">
+              {!editing && (
+                <select
+                  value={goal.status}
+                  disabled={saving || !goal.canEdit}
+                  onChange={(e) => void patch({ status: e.target.value })}
+                  className="rounded-lg border border-[var(--border)] bg-background px-3 py-1.5 text-sm"
+                >
+                  {STATUSES.map((s) => (
+                    <option key={s} value={s}>
+                      {s.replaceAll("_", " ")}
+                    </option>
+                  ))}
+                </select>
+              )}
+              {goal.canEdit && !editing && (
+                <button
+                  type="button"
+                  onClick={() => startEdit(goal)}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-background px-3 py-1.5 text-sm font-semibold text-primary hover:bg-[var(--private-bg)]"
+                >
+                  <Pencil size={14} aria-hidden />
+                  Edit goal
+                </button>
+              )}
+            </div>
           </div>
 
-          {goal.why && (
-            <p className="mt-4 text-sm leading-6 text-secondary">
-              <span className="font-medium text-[var(--text)]">Why: </span>
-              {goal.why}
-            </p>
+          {editing ? (
+            <form onSubmit={saveGoalEdit} className="mt-4 space-y-3">
+              <label className="block text-sm font-medium text-[var(--text)]">
+                Title
+                <input
+                  required
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  className="input-field mt-1 w-full"
+                />
+              </label>
+              <label className="block text-sm font-medium text-[var(--text)]">
+                Why this matters
+                <textarea
+                  rows={2}
+                  value={editWhy}
+                  onChange={(e) => setEditWhy(e.target.value)}
+                  className="input-field mt-1 w-full"
+                  placeholder="Purpose behind this goal"
+                />
+              </label>
+              <label className="block text-sm font-medium text-[var(--text)]">
+                Description
+                <textarea
+                  rows={4}
+                  value={editDescription}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                  className="input-field mt-1 w-full"
+                  placeholder="Details, notes, definition of done…"
+                />
+              </label>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <label className="block text-sm font-medium text-[var(--text)]">
+                  Target
+                  <input
+                    type="number"
+                    min={0}
+                    step="any"
+                    value={editTarget}
+                    onChange={(e) => setEditTarget(e.target.value)}
+                    className="input-field mt-1 w-full"
+                    placeholder="Optional"
+                  />
+                </label>
+                <label className="block text-sm font-medium text-[var(--text)]">
+                  Unit
+                  <input
+                    value={editUnit}
+                    onChange={(e) => setEditUnit(e.target.value)}
+                    className="input-field mt-1 w-full"
+                    placeholder="e.g. KES, kg, sessions"
+                  />
+                </label>
+                <label className="block text-sm font-medium text-[var(--text)]">
+                  Deadline
+                  <input
+                    type="date"
+                    value={editDeadline}
+                    onChange={(e) => setEditDeadline(e.target.value)}
+                    className="input-field mt-1 w-full"
+                  />
+                </label>
+              </div>
+              <label className="block text-sm font-medium text-[var(--text)]">
+                Status
+                <select
+                  value={editStatus}
+                  onChange={(e) => setEditStatus(e.target.value)}
+                  className="input-field mt-1 w-full"
+                >
+                  {STATUSES.map((s) => (
+                    <option key={s} value={s}>
+                      {s.replaceAll("_", " ")}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div className="flex flex-wrap justify-end gap-2 pt-1">
+                <button
+                  type="button"
+                  disabled={saving}
+                  onClick={() => setEditing(false)}
+                  className="btn-secondary inline-flex items-center gap-1.5 text-sm"
+                >
+                  <X size={14} aria-hidden />
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="btn-primary text-sm font-semibold disabled:opacity-50"
+                >
+                  {saving ? "Saving…" : "Save changes"}
+                </button>
+              </div>
+            </form>
+          ) : (
+            <>
+              {goal.why && (
+                <p className="mt-4 text-sm leading-6 text-secondary">
+                  <span className="font-medium text-[var(--text)]">Why: </span>
+                  {goal.why}
+                </p>
+              )}
+              {goal.description && (
+                <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-secondary">
+                  {goal.description}
+                </p>
+              )}
+              <div className="mt-4 flex flex-wrap gap-4 text-xs text-secondary">
+                {goal.deadline && <span>Deadline: {formatDate(goal.deadline)}</span>}
+                <span>
+                  Milestones: {milestoneDone}/{goal.milestones.length}
+                </span>
+                <span>
+                  Actions: {actionDone}/{goal.actions.length}
+                </span>
+              </div>
+            </>
           )}
-          {goal.description && (
-            <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-secondary">
-              {goal.description}
-            </p>
-          )}
-
-          <div className="mt-4 flex flex-wrap gap-4 text-xs text-secondary">
-            {goal.deadline && <span>Deadline: {formatDate(goal.deadline)}</span>}
-            <span>
-              Milestones: {milestoneDone}/{goal.milestones.length}
-            </span>
-            <span>
-              Actions: {actionDone}/{goal.actions.length}
-            </span>
-          </div>
 
           {progress !== null && (
             <div className="mt-5">
