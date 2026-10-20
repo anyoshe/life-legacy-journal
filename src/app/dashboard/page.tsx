@@ -16,6 +16,7 @@ import {
 import { DashboardTopNav } from "@/components/layout/DashboardTopNav";
 import { RulesCompassCard } from "@/components/dashboard/RulesCompassCard";
 import { lifeAreaMood } from "@/lib/nav-config";
+import { HideableLifeAreaTiles } from "@/components/dashboard/HideableLifeAreaTiles";
 
 const activeGoalStatuses = new Set<GoalStatus>([
   GoalStatus.ACTIVE,
@@ -205,6 +206,30 @@ export default async function DashboardPage() {
     goalsByArea.set(g.area, list);
   }
 
+  const lifeAreaTiles = (() => {
+    const areasWithGoals = [...goalsByArea.keys()];
+    const seen = new Set<GoalArea>();
+    const areas: GoalArea[] = [];
+    for (const a of [...showcaseAreas, ...areasWithGoals]) {
+      if (seen.has(a)) continue;
+      seen.add(a);
+      areas.push(a);
+    }
+    return areas.map((area) => {
+      const mood = lifeAreaMood[area] ?? lifeAreaMood.OTHER;
+      const list = goalsByArea.get(area) ?? [];
+      const top = list[0];
+      return {
+        area,
+        label: mood.label,
+        gradient: mood.gradient,
+        goalCount: list.length,
+        topGoalId: top?.id ?? null,
+        topGoalTitle: top?.title ?? null,
+      };
+    });
+  })();
+
   return (
     <div className="page-wash min-h-screen pb-nav">
       <DashboardTopNav rightSlot={<UserButton />} />
@@ -378,66 +403,8 @@ export default async function DashboardPage() {
           </div>
         </section>
 
-        {/* C. Visual life-area overview — atmospheric “photography” gradients */}
-        <section>
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-[var(--text)]">
-              Goals by life area
-            </h2>
-            <Link href="/goals" className="text-xs font-medium text-primary">
-              All goals
-            </Link>
-          </div>
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
-            {(() => {
-              const areasWithGoals = [...goalsByArea.keys()];
-              const ordered = [
-                ...showcaseAreas.filter((a) => areasWithGoals.includes(a) || true),
-                ...areasWithGoals.filter((a) => !showcaseAreas.includes(a)),
-              ];
-              // Unique preserve order: first showcase (always), then any extra areas with goals
-              const seen = new Set<GoalArea>();
-              const areas: GoalArea[] = [];
-              for (const a of [...showcaseAreas, ...areasWithGoals]) {
-                if (seen.has(a)) continue;
-                seen.add(a);
-                areas.push(a);
-              }
-              return areas;
-            })().map((area) => {
-              const mood = lifeAreaMood[area] ?? lifeAreaMood.OTHER;
-              const list = goalsByArea.get(area) ?? [];
-              const top = list[0];
-              return (
-                <Link
-                  key={area}
-                  href={top ? `/goals/${top.id}` : "/goals"}
-                  className="group relative min-h-[7.5rem] overflow-hidden rounded-2xl shadow-sm transition hover:shadow-md"
-                  style={{ background: mood.gradient }}
-                >
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/15 to-transparent" />
-                  <div className="relative flex h-full flex-col justify-end p-3.5 text-white">
-                    <p className="text-[0.65rem] font-semibold uppercase tracking-wider text-white/80">
-                      {mood.label}
-                    </p>
-                    {top ? (
-                      <>
-                        <p className="mt-0.5 line-clamp-2 text-sm font-semibold leading-snug">
-                          {top.title}
-                        </p>
-                        <p className="mt-1 text-[0.65rem] text-white/75">
-                          {list.length} goal{list.length === 1 ? "" : "s"}
-                        </p>
-                      </>
-                    ) : (
-                      <p className="mt-0.5 text-sm text-white/85">Begin when ready</p>
-                    )}
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
-        </section>
+        {/* C. Goals by life area — hide empty "Begin when ready" tiles */}
+        <HideableLifeAreaTiles tiles={lifeAreaTiles} />
 
         {/* D. Today's focus — colour-led action strip */}
         <section className="grid gap-4 lg:grid-cols-5">
