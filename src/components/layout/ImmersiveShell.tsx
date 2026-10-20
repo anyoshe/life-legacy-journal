@@ -138,7 +138,7 @@ export function ImmersiveShell({
       </aside>
 
       {/* Mobile top bar */}
-      <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-[var(--border)] bg-surface/90 px-4 backdrop-blur lg:hidden">
+      <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-[var(--border)] bg-surface/90 px-4 pt-[env(safe-area-inset-top)] backdrop-blur lg:hidden sticky-safe-top">
         <Link href="/dashboard" className="flex items-center gap-2">
           <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary text-white">
             <Sparkles size={14} aria-hidden />
@@ -156,7 +156,7 @@ export function ImmersiveShell({
 
       {/* Mobile bottom */}
       <nav
-        className="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--border)] bg-surface/95 pb-[env(safe-area-inset-bottom)] pt-1 backdrop-blur lg:hidden"
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--border)] bg-surface/95 pb-[env(safe-area-inset-bottom)] pt-1 backdrop-blur lg:hidden touch-manipulation"
         aria-label="Mobile navigation"
       >
         <ul className="mx-auto flex max-w-lg">
@@ -169,8 +169,8 @@ export function ImmersiveShell({
                   href={item.href}
                   className={
                     active
-                      ? "flex min-h-12 flex-col items-center justify-center gap-0.5 text-primary"
-                      : "flex min-h-12 flex-col items-center justify-center gap-0.5 text-secondary"
+                      ? "flex min-h-14 flex-col items-center justify-center gap-0.5 px-1 text-primary"
+                      : "flex min-h-14 flex-col items-center justify-center gap-0.5 px-1 text-secondary"
                   }
                   aria-current={active ? "page" : undefined}
                 >

@@ -477,3 +477,64 @@ body {
     bottom: 2rem;
   }
 }
+
+/* ——— Mobile responsiveness & touch ——— */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  overflow-x: hidden;
+  /* Avoid 300ms tap delay on older engines */
+  touch-action: manipulation;
+}
+
+/* Prevent iOS zoom-on-focus for form controls */
+@media (max-width: 640px) {
+  input,
+  select,
+  textarea,
+  button {
+    font-size: 16px;
+  }
+
+  /* Comfortable tap targets */
+  .btn-primary,
+  .btn-secondary {
+    min-height: 2.75rem;
+    padding-left: 1.25rem;
+    padding-right: 1.25rem;
+  }
+
+  /* Page content: consistent horizontal rhythm */
+  .page-pad {
+    padding-left: max(1rem, env(safe-area-inset-left));
+    padding-right: max(1rem, env(safe-area-inset-right));
+  }
+
+  /* Tables / wide cards scroll instead of breaking layout */
+  .scroll-x-mobile {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+  }
+
+  /* Slightly tighter hero on small screens */
+  .life-hero h1 {
+    font-size: 1.35rem;
+    line-height: 1.25;
+  }
+}
+
+/* Sticky headers clear notches */
+@supports (padding: max(0px)) {
+  .sticky-safe-top {
+    padding-top: env(safe-area-inset-top);
+  }
+}
+
+/* Bottom nav already uses safe-area; ensure fixed CTAs clear it */
+.fab-above-nav {
+  bottom: calc(4.75rem + env(safe-area-inset-bottom, 0px));
+}
