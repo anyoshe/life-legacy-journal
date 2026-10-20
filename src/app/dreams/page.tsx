@@ -148,8 +148,11 @@ export default function DreamsPage() {
             </p>
           )}
 
-          {/* Form stays compact at top; list grows full width below */}
-          <form onSubmit={onSubmit} className="card mx-auto max-w-2xl space-y-3 p-5 lg:mx-0 lg:max-w-xl">
+
+          {/* Top: form + day intentions side by side; night dreams full width below */}
+          <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
+            <form onSubmit={onSubmit} className="card space-y-3 p-5">
+              <h2 className="text-sm font-semibold text-[var(--text)]">Capture</h2>
               <label className="block text-sm font-medium">
                 Kind
                 <select
@@ -170,15 +173,15 @@ export default function DreamsPage() {
                   placeholder="Short label"
                 />
               </label>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-3 sm:grid-cols-2">
                 <label className="block text-sm font-medium">
                   When dreamed / intended
                   <input
                     type="date"
-                    required
                     value={dreamDate}
                     onChange={(e) => setDreamDate(e.target.value)}
                     className="input-field mt-1.5 w-full"
+                    required
                   />
                 </label>
                 <label className="block text-sm font-medium">
@@ -191,40 +194,147 @@ export default function DreamsPage() {
                   />
                 </label>
               </div>
-              <p className="text-xs text-muted">
-                Written time is saved automatically when you press Save.
-              </p>
               <label className="block text-sm font-medium">
-                What did you dream or intend?
+                Content
                 <textarea
-                  required
-                  rows={5}
                   value={content}
                   onChange={(e) => setContent(e.target.value)}
+                  rows={5}
+                  required
                   className="input-field mt-1.5 w-full"
+                  placeholder={
+                    kind === "DAY_INTENTION"
+                      ? "What I intend to live today…"
+                      : "What I dreamed…"
+                  }
                 />
               </label>
-              <button type="submit" disabled={saving} className="btn-primary w-full disabled:opacity-50">
+              <button
+                type="submit"
+                disabled={saving}
+                className="btn-primary w-full disabled:opacity-50"
+              >
                 {saving ? "Saving…" : "Save"}
               </button>
             </form>
 
+            {/* Day intentions — left/right of form on large screens */}
             <section className="space-y-3">
-              <div className="flex items-center justify-between">
-                <h2 className="text-sm font-semibold text-[var(--text)]">Your log</h2>
-                <span className="text-xs text-secondary">{dreams.length} saved</span>
+              <div className="flex items-center justify-between gap-2">
+                <h2 className="text-sm font-semibold text-[var(--text)]">
+                  Day intentions
+                </h2>
+                <span className="text-xs text-secondary">{day.length}</span>
               </div>
+              {loading ? (
+                <p className="text-sm text-secondary">Loading…</p>
+              ) : day.length === 0 ? (
+                <div className="card border-dashed p-6 text-center text-sm text-secondary">
+                  Day intentions will appear here — set kind to Day intention
+                  and save.
+                </div>
+              ) : (
+                <ul
+                  className={
+                    day.length <= 2
+                      ? "space-y-3"
+                      : "grid gap-2 sm:grid-cols-1 xl:grid-cols-2"
+                  }
+                >
+                  {day.map((d) => {
+                    const open = expandedId === d.id;
+                    const few = day.length <= 2;
+                    const showBody = few || open;
+                    const label = d.title?.trim() || "Day intention";
+                    const dreamedLabel = [
+                      fmtDate(d.date),
+                      d.timeOfDay ? `at ${d.timeOfDay}` : null,
+                    ]
+                      .filter(Boolean)
+                      .join(" ");
+                    return (
+                      <li
+                        key={d.id}
+                        className={
+                          few
+                            ? "card border-l-4 border-l-primary p-4 sm:p-5"
+                            : "card p-3.5"
+                        }
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[0.65rem] font-bold uppercase tracking-wide text-primary">
+                              Day intention
+                            </p>
+                            <p className="mt-0.5 font-semibold text-[var(--text)]">
+                              {label}
+                            </p>
+                            <p className="mt-1 text-xs text-secondary">
+                              {dreamedLabel}
+                              <span className="text-muted">
+                                {" "}
+                                · written {fmtWritten(d.createdAt)}
+                              </span>
+                            </p>
+                          </div>
+                          {!few && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setExpandedId(open ? null : d.id)
+                              }
+                              className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-primary hover:underline"
+                            >
+                              {open ? (
+                                <>
+                                  <ChevronUp size={14} /> Less
+                                </>
+                              ) : (
+                                <>
+                                  <ChevronDown size={14} /> More
+                                </>
+                              )}
+                            </button>
+                          )}
+                        </div>
+                        {showBody && (
+                          <p
+                            className={
+                              few
+                                ? "mt-3 whitespace-pre-wrap text-sm leading-relaxed text-[var(--text)]"
+                                : "mt-2 whitespace-pre-wrap border-t border-[var(--border)] pt-2 text-sm leading-relaxed text-secondary"
+                            }
+                          >
+                            {d.content}
+                          </p>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </section>
+          </div>
+
+          {/* Night dreams — full width tiles below */}
+          <section className="space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="text-sm font-semibold text-[var(--text)]">
+                Night dreams
+              </h2>
+              <span className="text-xs text-secondary">{night.length} saved</span>
+            </div>
             {loading ? (
               <p className="text-sm text-secondary">Loading…</p>
-            ) : dreams.length === 0 ? (
+            ) : night.length === 0 ? (
               <div className="card p-8 text-center text-sm text-secondary">
-                Capture a day intention or a night dream when you are ready.
+                Night dreams will list here as tiles after you save them.
               </div>
             ) : (
               <ul className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-                {dreams.map((d) => {
+                {night.map((d) => {
                   const open = expandedId === d.id;
-                  const label = d.title?.trim() || "Untitled";
+                  const label = d.title?.trim() || "Untitled dream";
                   const dreamedLabel = [
                     fmtDate(d.date),
                     d.timeOfDay ? `at ${d.timeOfDay}` : null,
@@ -236,7 +346,7 @@ export default function DreamsPage() {
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0 flex-1">
                           <p className="text-[0.65rem] font-bold uppercase tracking-wide text-secondary">
-                            {String(d.kind).replaceAll("_", " ")}
+                            Night dream
                           </p>
                           <p className="mt-0.5 font-semibold text-[var(--text)]">
                             {label}
@@ -275,7 +385,8 @@ export default function DreamsPage() {
                 })}
               </ul>
             )}
-            </section>
+          </section>
+
         </main>
       </MoodCanvas>
     </AppShell>
