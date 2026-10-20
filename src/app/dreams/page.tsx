@@ -148,8 +148,8 @@ export default function DreamsPage() {
             </p>
           )}
 
-          <div className="grid gap-6 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:items-start">
-            <form onSubmit={onSubmit} className="card space-y-3 p-5">
+          {/* Form stays compact at top; list grows full width below */}
+          <form onSubmit={onSubmit} className="card mx-auto max-w-2xl space-y-3 p-5 lg:mx-0 lg:max-w-xl">
               <label className="block text-sm font-medium">
                 Kind
                 <select
@@ -209,6 +209,11 @@ export default function DreamsPage() {
               </button>
             </form>
 
+            <section className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm font-semibold text-[var(--text)]">Your log</h2>
+                <span className="text-xs text-secondary">{dreams.length} saved</span>
+              </div>
             {loading ? (
               <p className="text-sm text-secondary">Loading…</p>
             ) : dreams.length === 0 ? (
@@ -216,7 +221,7 @@ export default function DreamsPage() {
                 Capture a day intention or a night dream when you are ready.
               </div>
             ) : (
-              <ul className="space-y-2">
+              <ul className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
                 {dreams.map((d) => {
                   const open = expandedId === d.id;
                   const label = d.title?.trim() || "Untitled";
@@ -270,7 +275,7 @@ export default function DreamsPage() {
                 })}
               </ul>
             )}
-          </div>
+            </section>
         </main>
       </MoodCanvas>
     </AppShell>

@@ -24,6 +24,15 @@ const activeGoalStatuses = new Set<GoalStatus>([
   GoalStatus.BEHIND,
 ]);
 
+/** Shown on dashboard area map (everything except archived/abandoned). */
+const dashboardGoalStatuses = new Set<GoalStatus>([
+  GoalStatus.ACTIVE,
+  GoalStatus.ON_TRACK,
+  GoalStatus.NEEDS_ATTENTION,
+  GoalStatus.BEHIND,
+  GoalStatus.COMPLETED,
+]);
+
 const areaLabels: Record<GoalArea, string> = {
   SPIRITUAL: "Spiritual",
   MARRIAGE: "Relationship",
@@ -128,6 +137,7 @@ export default async function DashboardPage() {
     ]);
 
   const activeGoals = goals.filter((g) => activeGoalStatuses.has(g.status));
+  const mapGoals = goals.filter((g) => dashboardGoalStatuses.has(g.status));
   const habitItems: TodayHabitItem[] = habits.map((h) => ({
     id: h.id,
     title: h.title,
@@ -188,8 +198,8 @@ export default async function DashboardPage() {
     Boolean((user as { valuesHeadline?: string | null }).valuesHeadline?.trim());
   const rules = ruleTitles;
 
-  const goalsByArea = new Map<GoalArea, typeof activeGoals>();
-  for (const g of activeGoals) {
+  const goalsByArea = new Map<GoalArea, typeof mapGoals>();
+  for (const g of mapGoals) {
     const list = goalsByArea.get(g.area) ?? [];
     list.push(g);
     goalsByArea.set(g.area, list);
@@ -379,7 +389,22 @@ export default async function DashboardPage() {
             </Link>
           </div>
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
-            {showcaseAreas.map((area) => {
+            {(() => {
+              const areasWithGoals = [...goalsByArea.keys()];
+              const ordered = [
+                ...showcaseAreas.filter((a) => areasWithGoals.includes(a) || true),
+                ...areasWithGoals.filter((a) => !showcaseAreas.includes(a)),
+              ];
+              // Unique preserve order: first showcase (always), then any extra areas with goals
+              const seen = new Set<GoalArea>();
+              const areas: GoalArea[] = [];
+              for (const a of [...showcaseAreas, ...areasWithGoals]) {
+                if (seen.has(a)) continue;
+                seen.add(a);
+                areas.push(a);
+              }
+              return areas;
+            })().map((area) => {
               const mood = lifeAreaMood[area] ?? lifeAreaMood.OTHER;
               const list = goalsByArea.get(area) ?? [];
               const top = list[0];
@@ -401,7 +426,7 @@ export default async function DashboardPage() {
                           {top.title}
                         </p>
                         <p className="mt-1 text-[0.65rem] text-white/75">
-                          {list.length} active
+                          {list.length} goal{list.length === 1 ? "" : "s"}
                         </p>
                       </>
                     ) : (
