@@ -69,6 +69,9 @@ model User {
   dreams        Dream[]
   todos         Todo[]
   notifications Notification[]
+  moneyAccounts MoneyAccount[]
+  personalAssets PersonalAsset[]
+  moneyExpenses MoneyExpense[]
 
   @@map("users")
 }
@@ -675,18 +678,80 @@ model FinancePlan {
 }
 
 model FinanceTransaction {
-  id            String         @id @default(cuid())
-  financePlanId String
-  kind          FinanceTxnKind
-  amount        Float
-  paymentMethod String?        // M-Pesa, Cash, Bank transfer, Card, Other
-  note          String?
-  occurredAt    DateTime       @default(now())
-  createdAt     DateTime       @default(now())
+  id             String         @id @default(cuid())
+  financePlanId  String
+  moneyAccountId String?
+  kind           FinanceTxnKind
+  amount         Float
+  paymentMethod  String?
+  note           String?
+  occurredAt     DateTime       @default(now())
+  createdAt      DateTime       @default(now())
 
-  plan FinancePlan @relation(fields: [financePlanId], references: [id], onDelete: Cascade)
+  plan         FinancePlan   @relation(fields: [financePlanId], references: [id], onDelete: Cascade)
+  moneyAccount MoneyAccount? @relation(fields: [moneyAccountId], references: [id], onDelete: SetNull)
 
   @@index([financePlanId, occurredAt])
   @@map("finance_transactions")
 }
+
+// ============================================================
+// FINANCE HUB — cash, assets, expenses (lifestyle control)
+// ============================================================
+
+model MoneyAccount {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  kind      String   @default("CASH") // CASH, BANK, MPESA, OTHER
+  currency  String   @default("KES")
+  balance   Float    @default(0)
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user         User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expenses     MoneyExpense[]
+  debtPayments FinanceTransaction[]
+
+  @@index([userId])
+  @@map("money_accounts")
+}
+
+model PersonalAsset {
+  id          String   @id @default(cuid())
+  userId      String
+  name        String
+  category    String?  // property, vehicle, equipment, other
+  value       Float    @default(0)
+  currency    String   @default("KES")
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("personal_assets")
+}
+
+model MoneyExpense {
+  id               String   @id @default(cuid())
+  userId           String
+  moneyAccountId   String
+  amount           Float
+  category         String?
+  description      String?
+  paymentMethod    String?
+  fundingSourceNote String?  // required when amount > account balance (before debit)
+  occurredAt       DateTime @default(now())
+  createdAt        DateTime @default(now())
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  moneyAccount MoneyAccount @relation(fields: [moneyAccountId], references: [id], onDelete: Restrict)
+
+  @@index([userId, occurredAt])
+  @@map("money_expenses")
+}
+
 

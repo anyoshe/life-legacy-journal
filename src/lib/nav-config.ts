@@ -14,6 +14,7 @@ import {
   Moon,
   Sparkles,
   Target,
+  Wallet,
 } from "lucide-react";
 
 export type NavGroupId =
@@ -52,6 +53,7 @@ export const appNavItems: NavItem[] = [
   { href: "/today", label: "Today", icon: CalendarCheck, group: "home" },
   { href: "/foundation", label: "Foundation", icon: Compass, group: "life" },
   { href: "/goals", label: "Goals", icon: Target, group: "life" },
+  { href: "/finance", label: "Finance", icon: Wallet, group: "life" },
   { href: "/habits", label: "Habits", icon: Leaf, group: "life" },
   { href: "/entries", label: "Journal", icon: BookOpen, group: "journal" },
   { href: "/dreams", label: "Dreams", icon: Moon, group: "journal" },
