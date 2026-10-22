@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getCurrentDbUser } from "@/lib/auth";
 import { calendarDateOnly, parseCalendarDate } from "@/lib/dates";
 import { prisma } from "@/lib/prisma";
+import { rolloverIncompleteTodos } from "@/lib/todo-rollover";
 
 const timeRe = /^([01]\d|2[0-3]):[0-5]\d$/;
 
@@ -24,6 +25,12 @@ export async function GET(request: NextRequest) {
 
   const dateParam = request.nextUrl.searchParams.get("date");
   const date = parseCalendarDate(dateParam) ?? calendarDateOnly();
+  const today = calendarDateOnly();
+
+  // Carry incomplete items forward when viewing today (or default date)
+  if (date.getTime() === today.getTime()) {
+    await rolloverIncompleteTodos(user.id, today);
+  }
 
   const todos = await prisma.todo.findMany({
     where: { userId: user.id, date },
@@ -36,7 +43,10 @@ export async function GET(request: NextRequest) {
     include: { goal: { select: { id: true, title: true, area: true } } },
   });
 
-  return NextResponse.json({ todos, date: date.toISOString().slice(0, 10) });
+  return NextResponse.json({
+    todos,
+    date: date.toISOString().slice(0, 10),
+  });
 }
 
 export async function POST(request: NextRequest) {

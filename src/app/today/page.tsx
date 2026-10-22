@@ -4,6 +4,7 @@ import { UserButton } from "@clerk/nextjs";
 import { GoalArea, GoalStatus } from "@prisma/client";
 import { getCurrentDbUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { rolloverIncompleteTodos } from "@/lib/todo-rollover";
 import {
   TodayActions,
   type TodayActionItem,
@@ -61,6 +62,8 @@ export default async function TodayPage() {
 
   const today = todayDateOnly();
   const now = new Date();
+
+  await rolloverIncompleteTodos(user.id, today);
 
   const [habits, goals, todos] = await Promise.all([
     prisma.habit.findMany({
