@@ -10,6 +10,7 @@ import { GoalRollupSummary } from "@/components/goals/GoalRollupSummary";
 import { MoodCanvas } from "@/components/ui/MoodCanvas";
 import { UserButton } from "@clerk/nextjs";
 import { AppShell } from "@/components/layout/AppShell";
+import { FinanceGoalPanel } from "@/components/goals/FinanceGoalPanel";
 
 type Milestone = {
   id: string;
@@ -804,7 +805,9 @@ export default function GoalDetailPage() {
             )}
           </section>
         )}
-      </main>
+      
+        <FinanceGoalPanel goalId={goal.id} />
+</main>
     </div>
     </MoodCanvas>
     </AppShell>

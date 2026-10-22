@@ -46,6 +46,13 @@ export default function GoalsPage() {
   const [targetValue, setTargetValue] = useState("");
   const [unit, setUnit] = useState("");
   const [deadline, setDeadline] = useState("");
+  const [financeMode, setFinanceMode] = useState<"DEBT" | "SAVINGS">("DEBT");
+  const [creditorName, setCreditorName] = useState("");
+  const [borrowedAt, setBorrowedAt] = useState("");
+  const [principal, setPrincipal] = useState("");
+  const [interestRate, setInterestRate] = useState("");
+  const [totalOwed, setTotalOwed] = useState("");
+  const [savingsDestination, setSavingsDestination] = useState("");
 
   async function loadGoals() {
     try {
@@ -69,28 +76,93 @@ export default function GoalsPage() {
     setSaving(true);
     setError(null);
     try {
+      const isFinance = area === "FINANCIAL";
+      const goalType = isFinance ? "NUMERIC" : type;
+      const goalUnit = isFinance ? unit || "KES" : unit || undefined;
+      let goalTarget = targetValue ? Number(targetValue) : undefined;
+      if (isFinance && financeMode === "DEBT") {
+        goalTarget = Number(totalOwed || principal);
+      }
+      if (isFinance && financeMode === "SAVINGS") {
+        goalTarget = Number(targetValue);
+      }
+
       const response = await fetch("/api/goals", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title,
           area,
-          type,
+          type: goalType,
           why,
-          unit: unit || undefined,
+          unit: goalUnit,
           deadline: deadline ? new Date(deadline).toISOString() : undefined,
-          targetValue: targetValue ? Number(targetValue) : undefined,
+          targetValue: goalTarget,
         }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Unable to create goal.");
+
+      const newId = data.goal?.id as string | undefined;
+      if (isFinance && newId) {
+        if (financeMode === "DEBT" && !creditorName.trim()) {
+          throw new Error("Enter who you owe for a debt goal.");
+        }
+        if (financeMode === "DEBT" && !principal) {
+          throw new Error("Enter the principal amount.");
+        }
+        if (financeMode === "SAVINGS" && !targetValue) {
+          throw new Error("Enter the savings target amount.");
+        }
+        const financeBody =
+          financeMode === "DEBT"
+            ? {
+                mode: "DEBT" as const,
+                currency: goalUnit || "KES",
+                creditorName: creditorName.trim(),
+                borrowedAt: borrowedAt ? new Date(borrowedAt).toISOString() : null,
+                principal: Number(principal),
+                interestRate: interestRate === "" ? null : Number(interestRate),
+                totalOwed: Number(totalOwed || principal),
+                deadline: deadline ? new Date(deadline).toISOString() : null,
+              }
+            : {
+                mode: "SAVINGS" as const,
+                currency: goalUnit || "KES",
+                targetAmount: Number(targetValue),
+                savingsDestination: savingsDestination.trim() || null,
+                deadline: deadline ? new Date(deadline).toISOString() : null,
+              };
+        const finRes = await fetch(`/api/finance/${newId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(financeBody),
+        });
+        const finData = await finRes.json().catch(() => ({}));
+        if (!finRes.ok) {
+          throw new Error(
+            finData.error ||
+              "Goal created, but finance numbers failed — open the goal to finish setup.",
+          );
+        }
+      }
+
       setShowForm(false);
       setTitle("");
       setWhy("");
       setTargetValue("");
       setUnit("");
       setDeadline("");
+      setCreditorName("");
+      setBorrowedAt("");
+      setPrincipal("");
+      setInterestRate("");
+      setTotalOwed("");
+      setSavingsDestination("");
       await loadGoals();
+      if (newId) {
+        window.location.href = `/goals/${newId}`;
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to create goal.");
     } finally {
@@ -195,7 +267,11 @@ export default function GoalsPage() {
               Area
               <select
                 value={area}
-                onChange={(e) => setArea(e.target.value)}
+                onChange={(e) => {
+                  const next = e.target.value;
+                  setArea(next);
+                  if (next === "FINANCIAL") setType("NUMERIC");
+                }}
                 className="input-field mt-1.5"
               >
                 {areas.map((item) => (
@@ -205,20 +281,22 @@ export default function GoalsPage() {
                 ))}
               </select>
             </label>
-            <label className="text-sm font-medium">
-              How will you track it?
-              <select
-                value={type}
-                onChange={(e) => setType(e.target.value)}
-                className="input-field mt-1.5"
-              >
-                {types.map((item) => (
-                  <option key={item} value={item}>
-                    {item.replaceAll("_", " ")}
-                  </option>
-                ))}
-              </select>
-            </label>
+            {area !== "FINANCIAL" && (
+              <label className="text-sm font-medium">
+                How will you track it?
+                <select
+                  value={type}
+                  onChange={(e) => setType(e.target.value)}
+                  className="input-field mt-1.5"
+                >
+                  {types.map((item) => (
+                    <option key={item} value={item}>
+                      {item.replaceAll("_", " ")}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
             <label className="text-sm font-medium sm:col-span-2">
               Why does this matter?
               <textarea
@@ -228,32 +306,182 @@ export default function GoalsPage() {
                 className="input-field mt-1.5"
               />
             </label>
-            <label className="text-sm font-medium">
-              Target value
-              <input
-                type="number"
-                value={targetValue}
-                onChange={(e) => setTargetValue(e.target.value)}
-                className="input-field mt-1.5"
-              />
-            </label>
-            <label className="text-sm font-medium">
-              Unit
-              <input
-                value={unit}
-                onChange={(e) => setUnit(e.target.value)}
-                className="input-field mt-1.5"
-              />
-            </label>
-            <label className="text-sm font-medium sm:col-span-2">
-              Deadline
-              <input
-                type="date"
-                value={deadline}
-                onChange={(e) => setDeadline(e.target.value)}
-                className="input-field mt-1.5"
-              />
-            </label>
+
+            {area === "FINANCIAL" ? (
+              <div className="space-y-3 rounded-xl border border-[var(--border)] bg-[var(--surface-gold)]/50 p-4 sm:col-span-2">
+                <p className="text-sm font-semibold text-[var(--text)]">Money numbers</p>
+                <p className="text-xs text-secondary">
+                  Choose debt payoff or savings. Amounts are required — not only words.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setFinanceMode("DEBT")}
+                    className={
+                      financeMode === "DEBT"
+                        ? "rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-white"
+                        : "rounded-full border border-[var(--border)] bg-white px-3 py-1.5 text-xs"
+                    }
+                  >
+                    Debt free
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFinanceMode("SAVINGS")}
+                    className={
+                      financeMode === "SAVINGS"
+                        ? "rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-white"
+                        : "rounded-full border border-[var(--border)] bg-white px-3 py-1.5 text-xs"
+                    }
+                  >
+                    Save for a goal
+                  </button>
+                </div>
+                <label className="block text-sm font-medium">
+                  Currency
+                  <input
+                    value={unit || "KES"}
+                    onChange={(e) => setUnit(e.target.value.toUpperCase())}
+                    className="input-field mt-1.5"
+                    placeholder="KES"
+                  />
+                </label>
+                {financeMode === "DEBT" ? (
+                  <>
+                    <label className="block text-sm font-medium">
+                      Who I owe
+                      <input
+                        required
+                        value={creditorName}
+                        onChange={(e) => setCreditorName(e.target.value)}
+                        className="input-field mt-1.5"
+                        placeholder="Person, bank, SACCO…"
+                      />
+                    </label>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <label className="text-sm font-medium">
+                        When borrowed
+                        <input
+                          type="date"
+                          value={borrowedAt}
+                          onChange={(e) => setBorrowedAt(e.target.value)}
+                          className="input-field mt-1.5"
+                        />
+                      </label>
+                      <label className="text-sm font-medium">
+                        Payment deadline
+                        <input
+                          type="date"
+                          value={deadline}
+                          onChange={(e) => setDeadline(e.target.value)}
+                          className="input-field mt-1.5"
+                        />
+                      </label>
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-3">
+                      <label className="text-sm font-medium">
+                        Principal
+                        <input
+                          required
+                          type="number"
+                          min={0}
+                          step="0.01"
+                          value={principal}
+                          onChange={(e) => setPrincipal(e.target.value)}
+                          className="input-field mt-1.5"
+                        />
+                      </label>
+                      <label className="text-sm font-medium">
+                        Interest % / year
+                        <input
+                          type="number"
+                          min={0}
+                          step="0.01"
+                          value={interestRate}
+                          onChange={(e) => setInterestRate(e.target.value)}
+                          className="input-field mt-1.5"
+                          placeholder="Optional"
+                        />
+                      </label>
+                      <label className="text-sm font-medium">
+                        Total owed
+                        <input
+                          type="number"
+                          min={0}
+                          step="0.01"
+                          value={totalOwed}
+                          onChange={(e) => setTotalOwed(e.target.value)}
+                          className="input-field mt-1.5"
+                          placeholder="Defaults to principal"
+                        />
+                      </label>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <label className="block text-sm font-medium">
+                      Goal amount (target)
+                      <input
+                        required
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        value={targetValue}
+                        onChange={(e) => setTargetValue(e.target.value)}
+                        className="input-field mt-1.5"
+                      />
+                    </label>
+                    <label className="block text-sm font-medium">
+                      Where I am saving
+                      <input
+                        value={savingsDestination}
+                        onChange={(e) => setSavingsDestination(e.target.value)}
+                        className="input-field mt-1.5"
+                        placeholder="Bank, M-Pesa, SACCO…"
+                      />
+                    </label>
+                    <label className="block text-sm font-medium">
+                      Target date
+                      <input
+                        type="date"
+                        value={deadline}
+                        onChange={(e) => setDeadline(e.target.value)}
+                        className="input-field mt-1.5"
+                      />
+                    </label>
+                  </>
+                )}
+              </div>
+            ) : (
+              <>
+                <label className="text-sm font-medium">
+                  Target value
+                  <input
+                    type="number"
+                    value={targetValue}
+                    onChange={(e) => setTargetValue(e.target.value)}
+                    className="input-field mt-1.5"
+                  />
+                </label>
+                <label className="text-sm font-medium">
+                  Unit
+                  <input
+                    value={unit}
+                    onChange={(e) => setUnit(e.target.value)}
+                    className="input-field mt-1.5"
+                  />
+                </label>
+                <label className="text-sm font-medium sm:col-span-2">
+                  Deadline
+                  <input
+                    type="date"
+                    value={deadline}
+                    onChange={(e) => setDeadline(e.target.value)}
+                    className="input-field mt-1.5"
+                  />
+                </label>
+              </>
+            )}
             <div className="flex gap-2 sm:col-span-2">
               <button type="submit" disabled={saving} className="btn-primary disabled:opacity-50">
                 {saving ? "Saving…" : "Create goal"}

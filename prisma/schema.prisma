@@ -231,6 +231,19 @@ model Entry {
 // GOALS SYSTEM (Hierarchical + SMART)
 // ============================================================
 
+
+enum FinanceMode {
+  DEBT
+  SAVINGS
+}
+
+enum FinanceTxnKind {
+  PAYMENT
+  CONTRIBUTION
+  INTEREST
+  ADJUSTMENT
+}
+
 enum GoalAlignment {
   NONE
   VISION
@@ -316,7 +329,8 @@ model Goal {
   actions    Action[]
   habit      Habit?
   entries    Entry[]
-  todos      Todo[]
+  todos        Todo[]
+  financePlan  FinancePlan?
 
   @@index([userId, status])
   @@index([area, status])
@@ -626,3 +640,53 @@ model AiMemory {
 
   @@map("ai_memory")
 }
+
+// ============================================================
+// FINANCE (debt payoff & savings) — linked 1:1 to a Goal
+// ============================================================
+
+model FinancePlan {
+  id     String      @id @default(cuid())
+  goalId String      @unique
+  mode   FinanceMode
+  currency String    @default("KES")
+
+  // Debt
+  creditorName   String?
+  borrowedAt     DateTime?
+  principal      Float?
+  interestRate   Float?    // annual percent, e.g. 12 = 12%
+  totalOwed      Float?    // principal + interest snapshot (editable / accrued)
+  amountPaid     Float     @default(0)
+  balance        Float?    // remaining = totalOwed - amountPaid
+
+  // Savings
+  targetAmount        Float?
+  savedAmount         Float     @default(0)
+  savingsDestination  String?   // bank, SACCO, M-Pesa, jar, etc.
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  goal         Goal                 @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  transactions FinanceTransaction[]
+
+  @@map("finance_plans")
+}
+
+model FinanceTransaction {
+  id            String         @id @default(cuid())
+  financePlanId String
+  kind          FinanceTxnKind
+  amount        Float
+  paymentMethod String?        // M-Pesa, Cash, Bank transfer, Card, Other
+  note          String?
+  occurredAt    DateTime       @default(now())
+  createdAt     DateTime       @default(now())
+
+  plan FinancePlan @relation(fields: [financePlanId], references: [id], onDelete: Cascade)
+
+  @@index([financePlanId, occurredAt])
+  @@map("finance_transactions")
+}
+
