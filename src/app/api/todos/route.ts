@@ -4,16 +4,16 @@ import { getCurrentDbUser } from "@/lib/auth";
 import { calendarDateOnly, parseCalendarDate } from "@/lib/dates";
 import { prisma } from "@/lib/prisma";
 
+const timeRe = /^([01]\d|2[0-3]):[0-5]\d$/;
+
 const createSchema = z
   .object({
     title: z.string().trim().min(1).max(200),
     notes: z.string().trim().max(2000).optional().nullable(),
     date: z.string().optional(),
-    timeOfDay: z
-      .string()
-      .regex(/^([01]\d|2[0-3]):[0-5]\d$/)
-      .optional()
-      .nullable(),
+    timeOfDay: z.string().regex(timeRe).optional().nullable(),
+    endTimeOfDay: z.string().regex(timeRe).optional().nullable(),
+    remindMinutesBefore: z.number().int().min(0).max(24 * 60).optional().nullable(),
     goalId: z.string().min(1).optional().nullable(),
   })
   .strict();
@@ -27,7 +27,12 @@ export async function GET(request: NextRequest) {
 
   const todos = await prisma.todo.findMany({
     where: { userId: user.id, date },
-    orderBy: [{ completed: "asc" }, { timeOfDay: "asc" }, { sortOrder: "asc" }, { createdAt: "asc" }],
+    orderBy: [
+      { completed: "asc" },
+      { timeOfDay: "asc" },
+      { sortOrder: "asc" },
+      { createdAt: "asc" },
+    ],
     include: { goal: { select: { id: true, title: true, area: true } } },
   });
 
@@ -47,7 +52,10 @@ export async function POST(request: NextRequest) {
 
   const parsed = createSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ error: "Please provide a title." }, { status: 400 });
+    return NextResponse.json(
+      { error: "Please provide a title (and valid times if set)." },
+      { status: 400 },
+    );
   }
 
   const data = parsed.data;
@@ -60,6 +68,13 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  if (data.timeOfDay && data.endTimeOfDay && data.endTimeOfDay < data.timeOfDay) {
+    return NextResponse.json(
+      { error: "End time should be after start time." },
+      { status: 400 },
+    );
+  }
+
   const date = parseCalendarDate(data.date) ?? calendarDateOnly();
 
   const todo = await prisma.todo.create({
@@ -69,6 +84,11 @@ export async function POST(request: NextRequest) {
       notes: data.notes || null,
       date,
       timeOfDay: data.timeOfDay || null,
+      endTimeOfDay: data.endTimeOfDay || null,
+      remindMinutesBefore:
+        data.remindMinutesBefore === undefined || data.remindMinutesBefore === null
+          ? null
+          : data.remindMinutesBefore,
       goalId: data.goalId || null,
     },
     include: { goal: { select: { id: true, title: true, area: true } } },

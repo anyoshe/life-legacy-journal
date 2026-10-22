@@ -5,15 +5,15 @@ import { prisma } from "@/lib/prisma";
 
 type RouteContext = { params: Promise<{ todoId: string }> };
 
+const timeRe = /^([01]\d|2[0-3]):[0-5]\d$/;
+
 const patchSchema = z
   .object({
     title: z.string().trim().min(1).max(200).optional(),
     notes: z.string().trim().max(2000).nullable().optional(),
-    timeOfDay: z
-      .string()
-      .regex(/^([01]\d|2[0-3]):[0-5]\d$/)
-      .nullable()
-      .optional(),
+    timeOfDay: z.string().regex(timeRe).nullable().optional(),
+    endTimeOfDay: z.string().regex(timeRe).nullable().optional(),
+    remindMinutesBefore: z.number().int().min(0).max(24 * 60).nullable().optional(),
     completed: z.boolean().optional(),
     goalId: z.string().min(1).nullable().optional(),
   })
@@ -51,10 +51,24 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
     }
   }
 
+  const start = data.timeOfDay !== undefined ? data.timeOfDay : existing.timeOfDay;
+  const end =
+    data.endTimeOfDay !== undefined ? data.endTimeOfDay : (existing as { endTimeOfDay?: string | null }).endTimeOfDay;
+  if (start && end && end < start) {
+    return NextResponse.json(
+      { error: "End time should be after start time." },
+      { status: 400 },
+    );
+  }
+
   const update: Record<string, unknown> = {};
   if (data.title !== undefined) update.title = data.title;
   if (data.notes !== undefined) update.notes = data.notes;
   if (data.timeOfDay !== undefined) update.timeOfDay = data.timeOfDay;
+  if (data.endTimeOfDay !== undefined) update.endTimeOfDay = data.endTimeOfDay;
+  if (data.remindMinutesBefore !== undefined) {
+    update.remindMinutesBefore = data.remindMinutesBefore;
+  }
   if (data.goalId !== undefined) update.goalId = data.goalId;
   if (data.completed !== undefined) {
     update.completed = data.completed;

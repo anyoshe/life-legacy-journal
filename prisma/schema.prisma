@@ -453,18 +453,20 @@ model Dream {
 // ============================================================
 
 model Todo {
-  id          String   @id @default(cuid())
-  userId      String
-  goalId      String?
-  title       String
-  notes       String?
-  date        DateTime @db.Date
-  timeOfDay   String?  // HH:mm 24h
-  completed   Boolean  @default(false)
-  completedAt DateTime?
-  sortOrder   Int      @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id                  String    @id @default(cuid())
+  userId              String
+  goalId              String?
+  title               String
+  notes               String?
+  date                DateTime  @db.Date
+  timeOfDay           String?   // start HH:mm 24h
+  endTimeOfDay        String?   // end HH:mm 24h
+  remindMinutesBefore Int?      // minutes before start → browser reminder
+  completed           Boolean   @default(false)
+  completedAt         DateTime?
+  sortOrder           Int       @default(0)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 
   user User  @relation(fields: [userId], references: [id], onDelete: Cascade)
   goal Goal? @relation(fields: [goalId], references: [id], onDelete: SetNull)

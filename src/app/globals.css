@@ -6,57 +6,57 @@
    ============================================================ */
 
 :root {
-  --primary: #4F46E5;
-  --primary-dark: #3730A3;
-  --primary-light: #818CF8;
-  --secondary: #5B8A72;
-  --growth: #7CB69A;
-  --achievement: #E0A82E;
-  --rose: #E8A0A8;
-  --coral: #F0B7A0;
-  --sky: #7EB6D4;
+  --primary: #6B4423;
+  --primary-dark: #3D2914;
+  --primary-light: #A67C52;
+  --secondary: #8B7355;
+  --growth: #6B8E5A;
+  --achievement: #C9A227;
+  --rose: #C4A484;
+  --coral: #D4A574;
+  --sky: #A89070;
 
-  --background: #F7F4EF;
-  --background-soft: #EFEBE3;
-  --surface: #FFFcf8;
-  --surface-elevated: #FFFFFF;
-  --surface-tint: #F3F0FF;
-  --surface-rose: #FFF5F5;
-  --surface-sage: #F2F8F4;
-  --surface-gold: #FFF9EB;
+  --background: #F5EFE6;
+  --background-soft: #EDE4D4;
+  --surface: #FFFBF5;
+  --surface-elevated: #FFFEFA;
+  --surface-tint: #F5EDE0;
+  --surface-rose: #F8F0E8;
+  --surface-sage: #F0EDE4;
+  --surface-gold: #FBF5E6;
 
-  --text: #1C1917;
-  --text-secondary: #57534E;
-  --text-muted: #A8A29E;
+  --text: #2C1810;
+  --text-secondary: #5C4033;
+  --text-muted: #9A8578;
 
-  --border: #E7E2DA;
-  --border-subtle: #F0EBE4;
+  --border: #E0D4C4;
+  --border-subtle: #EDE4D4;
 
   --warning: #D97706;
   --attention: #E07A7A;
   --success: #5B8A72;
   --danger: #DC2626;
 
-  --private-bg: #EEF0FF;
+  --private-bg: #F5EDE0;
   --shared-bg: #FFF0F3;
   --shared-goal-bg: #EAF7F0;
-  --achievement-bg: #FFF6DE;
+  --achievement-bg: #FBF5E6;
 
-  --area-spiritual: #4F46E5;
+  --area-spiritual: #6B4423;
   --area-marriage: #D4848E;
   --area-financial: #5B8A72;
-  --area-goals: #4F46E5;
+  --area-goals: #6B4423;
   --area-personal: #3D9B9E;
   --area-family: #D4926A;
   --area-learning: #6B9BC3;
-  --area-achievements: #E0A82E;
+  --area-achievements: #C9A227;
   --area-habits: #7CB69A;
-  --area-journal: #A08060;
+  --area-journal: #6B4423;
 
   --shadow-sm: 0 1px 2px rgb(28 25 23 / 0.04);
   --shadow: 0 8px 24px -8px rgb(28 25 23 / 0.1), 0 2px 8px -2px rgb(28 25 23 / 0.04);
-  --shadow-md: 0 16px 40px -12px rgb(79 70 229 / 0.18), 0 8px 16px -8px rgb(28 25 23 / 0.08);
-  --shadow-glow: 0 0 0 1px rgb(79 70 229 / 0.1), 0 12px 32px -8px rgb(79 70 229 / 0.22);
+  --shadow-md: 0 16px 40px -12px rgb(107 68 35 / 0.18), 0 8px 16px -8px rgb(28 25 23 / 0.08);
+  --shadow-glow: 0 0 0 1px rgb(201 162 39 / 0.2), 0 12px 32px -8px rgb(107 68 35 / 0.22);
 
   --radius-sm: 0.75rem;
   --radius: 1.15rem;
@@ -307,18 +307,18 @@ body {
   justify-content: center;
   gap: 0.5rem;
   border-radius: var(--radius-pill);
-  background: linear-gradient(180deg, #6366F1 0%, #4F46E5 100%);
+  background: linear-gradient(180deg, #8B6914 0%, #6B4423 100%);
   color: #fff;
   font-weight: 600;
   font-size: 0.9rem;
   padding: 0.7rem 1.35rem;
-  box-shadow: 0 4px 14px rgb(79 70 229 / 0.35);
+  box-shadow: 0 4px 14px rgb(107 68 35 / 0.35);
   transition: filter 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
 }
 
 .btn-primary:hover {
   filter: brightness(1.06);
-  box-shadow: 0 6px 20px rgb(79 70 229 / 0.4);
+  box-shadow: 0 6px 20px rgb(107 68 35 / 0.4);
 }
 
 .btn-primary:active {
@@ -436,7 +436,7 @@ body {
 }
 
 ::selection {
-  background: rgb(79 70 229 / 0.18);
+  background: rgb(107 68 35 / 0.18);
   color: var(--text);
 }
 

@@ -118,6 +118,9 @@ export default async function TodayPage() {
     id: t.id,
     title: t.title,
     timeOfDay: t.timeOfDay,
+    endTimeOfDay: (t as { endTimeOfDay?: string | null }).endTimeOfDay ?? null,
+    remindMinutesBefore:
+      (t as { remindMinutesBefore?: number | null }).remindMinutesBefore ?? null,
     completed: t.completed,
     goalId: t.goalId,
     goal: t.goal,

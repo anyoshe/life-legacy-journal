@@ -243,7 +243,7 @@ export default async function DashboardPage() {
               {firstName ? `, ${firstName}` : ""}
             </p>
             <h1 className="text-2xl font-semibold tracking-tight text-[var(--text)] sm:text-3xl">
-              Your life map
+              WELCOME TO YOUR &amp; LEGACY JOURNEY
             </h1>
             <p className="text-sm text-muted">
               {new Intl.DateTimeFormat("en-GB", {
@@ -262,8 +262,9 @@ export default async function DashboardPage() {
         <section>
           <div className="mb-4 flex items-center justify-between gap-2">
             <div>
-              <p className="eyebrow text-primary/80">Foundation</p>
-              <h2 className="text-lg font-semibold tracking-tight text-[var(--text)]">Your compass</h2>
+              <p className="eyebrow text-primary/80">YOUR FOUNDATION</p>
+              <h2 className="text-lg font-semibold tracking-tight text-[var(--text)]">WHAT GUIDES YOUR LIFE</h2>
+              <p className="text-sm text-secondary">Shape your choices, nurture what matters, and build a future you can be proud of.</p>
             </div>
             <Link
               href="/foundation"

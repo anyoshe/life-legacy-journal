@@ -1,13 +1,13 @@
 {
   "name": "Life & Legacy Journal",
-  "short_name": "Life Legacy",
+  "short_name": "My Journal",
   "description": "Private journal and life planner — vision, goals, habits, and growth.",
   "start_url": "/dashboard",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait-primary",
-  "background_color": "#FAF9F6",
-  "theme_color": "#4338CA",
+  "background_color": "#F5EFE6",
+  "theme_color": "#6B4423",
   "categories": ["lifestyle", "productivity"],
   "icons": [
     {
