@@ -495,13 +495,40 @@ export default function FinanceHubPage() {
               </div>
 
               {showAddCreditor && (
+              <div
+                className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="debt-form-title"
+                onClick={(e) => {
+                  if (e.target === e.currentTarget) {
+                    setShowAddCreditor(false);
+                    setEditGoalId(null);
+                  }
+                }}
+              >
                 <form
                   onSubmit={saveCreditorForm}
-                  className="card grid gap-3 border-2 border-primary/20 p-4 sm:grid-cols-2"
+                  className="max-h-[90vh] w-full max-w-lg space-y-3 overflow-y-auto rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-xl"
+                  onClick={(e) => e.stopPropagation()}
                 >
-                  <p className="sm:col-span-2 text-sm font-semibold text-[var(--text)]">
-                    {editGoalId ? "Edit debt record" : "New creditor"}
-                  </p>
+                  <div className="mb-1 flex items-start justify-between gap-2">
+                    <p id="debt-form-title" className="text-sm font-semibold text-[var(--text)]">
+                      {editGoalId ? "Edit debt record" : "New creditor"}
+                    </p>
+                    <button
+                      type="button"
+                      className="rounded-full px-2 text-lg leading-none text-secondary hover:bg-[var(--border)]"
+                      aria-label="Close"
+                      onClick={() => {
+                        setShowAddCreditor(false);
+                        setEditGoalId(null);
+                      }}
+                    >
+                      ×
+                    </button>
+                  </div>
+
                   <label className="text-xs text-secondary sm:col-span-2">
                     Who I owe
                     <input
@@ -619,8 +646,10 @@ export default function FinanceHubPage() {
                       {busy ? "Saving…" : editGoalId ? "Update debt" : "Save creditor"}
                     </button>
                   </div>
+                
                 </form>
-              )}
+              </div>
+            )}
 
               {creditors.length === 0 && !showAddCreditor ? (
                 <p className="text-sm text-secondary">
