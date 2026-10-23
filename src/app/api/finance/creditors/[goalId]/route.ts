@@ -103,7 +103,20 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
       ? d.autoCalcTotal
       : ((existing as { autoCalcTotal?: boolean }).autoCalcTotal ?? true);
   const manualTotal = d.totalOwed !== undefined ? d.totalOwed : existing.totalOwed;
-  const totalOwed = totalFromPrincipalAndRate(principal, rate, auto, manualTotal);
+  const period =
+    d.interestPeriod ??
+    (existing as { interestPeriod?: InterestPeriod }).interestPeriod ??
+    InterestPeriod.YEARLY;
+  const borrowedAt =
+    d.borrowedAt !== undefined
+      ? d.borrowedAt
+      : existing.borrowedAt
+        ? existing.borrowedAt.toISOString().slice(0, 10)
+        : null;
+  const totalOwed = totalFromPrincipalAndRate(principal, rate, auto, manualTotal, {
+    period: period === "MONTHLY" ? "MONTHLY" : "YEARLY",
+    borrowedAt,
+  });
   const amountPaid = existing.amountPaid;
   const balance = Math.max(0, totalOwed - amountPaid);
 
@@ -129,9 +142,7 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
         creditorName: d.creditorName ?? existing.creditorName,
         principal,
         interestRate: rate,
-        interestPeriod: (d.interestPeriod ??
-          (existing as { interestPeriod?: InterestPeriod }).interestPeriod ??
-          InterestPeriod.YEARLY) as InterestPeriod,
+        interestPeriod: (d.interestPeriod ?? (existing as { interestPeriod?: InterestPeriod }).interestPeriod ?? InterestPeriod.YEARLY) as InterestPeriod,
         autoCalcTotal: auto,
         totalOwed,
         balance,

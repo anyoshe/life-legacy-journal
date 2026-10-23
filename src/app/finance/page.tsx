@@ -5,6 +5,11 @@ import Link from "next/link";
 import { UserButton } from "@clerk/nextjs";
 import { AppShell } from "@/components/layout/AppShell";
 import { repaymentProgress } from "@/lib/debt-progress";
+import {
+  interestAccrued,
+  totalFromPrincipalAndRate,
+  unpaidPeriodLabel,
+} from "@/lib/debt-calc";
 import { MoodCanvas } from "@/components/ui/MoodCanvas";
 
 type Tab = "overview" | "creditors" | "accounts" | "expenses" | "assets";
@@ -636,10 +641,17 @@ export default function FinanceHubPage() {
                                   String(credRate).replace(/,/g, "").trim() || "0",
                                 );
                                 if (!Number.isFinite(p) || p <= 0) return "";
-                                const interest = Number.isFinite(r) ? p * (r / 100) : 0;
-                                return String(
-                                  Math.round((p + interest) * 100) / 100,
+                                const total = totalFromPrincipalAndRate(
+                                  p,
+                                  r,
+                                  true,
+                                  null,
+                                  {
+                                    period: interestPeriod,
+                                    borrowedAt: credBorrowed || null,
+                                  },
                                 );
+                                return String(total);
                               })()
                             : credTotal
                         }
@@ -657,7 +669,7 @@ export default function FinanceHubPage() {
                       />
                       <span className="mt-1 block text-[0.65rem] text-muted">
                         {autoCalcTotal
-                          ? "Principal stays separate. Total updates when you change principal or interest rate. Use 0% interest if not applicable."
+                          ? `Simple interest over unpaid time: principal + (rate × ${interestPeriod === "MONTHLY" ? "months" : "years"} since “when borrowed”). ${credBorrowed ? unpaidPeriodLabel(credBorrowed, interestPeriod) + "." : "Set “when borrowed” so months/years are counted."} Example: 10% monthly for 4 months → interest = 40% of principal.`
                           : "Enter the full amount you must repay. Principal above stays the original borrow amount."}
                       </span>
                     </label>

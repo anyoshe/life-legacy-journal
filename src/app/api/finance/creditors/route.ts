@@ -131,6 +131,10 @@ export async function POST(request: NextRequest) {
     data.interestRate,
     auto,
     data.totalOwed,
+    {
+      period: data.interestPeriod || "YEARLY",
+      borrowedAt: data.borrowedAt,
+    },
   );
   const title = `Debt: ${data.creditorName}`;
 
