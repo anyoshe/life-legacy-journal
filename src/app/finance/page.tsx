@@ -529,118 +529,162 @@ export default function FinanceHubPage() {
                     </button>
                   </div>
 
-                  <label className="text-xs text-secondary sm:col-span-2">
-                    Who I owe
-                    <input
-                      required
-                      value={credName}
-                      onChange={(e) => setCredName(e.target.value)}
-                      className="input-field mt-1 w-full"
-                      placeholder="Name, bank, SACCO, shop…"
-                    />
-                  </label>
-                  <label className="text-xs text-secondary sm:col-span-2">
-                    Reason for borrowing
-                    <textarea
-                      value={borrowReason}
-                      onChange={(e) => setBorrowReason(e.target.value)}
-                      rows={2}
-                      className="input-field mt-1 w-full"
-                      placeholder="Why was this money borrowed?"
-                    />
-                  </label>
-                  <div className="sm:col-span-2 flex flex-wrap gap-2">
-                    <span className="w-full text-xs text-secondary">Interest period</span>
-                    <button
-                      type="button"
-                      onClick={() => setInterestPeriod("MONTHLY")}
-                      className={
-                        interestPeriod === "MONTHLY"
-                          ? "rounded-full bg-primary px-3 py-1 text-xs font-semibold text-white"
-                          : "rounded-full border border-[var(--border)] px-3 py-1 text-xs"
-                      }
-                    >
-                      Monthly %
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setInterestPeriod("YEARLY")}
-                      className={
-                        interestPeriod === "YEARLY"
-                          ? "rounded-full bg-primary px-3 py-1 text-xs font-semibold text-white"
-                          : "rounded-full border border-[var(--border)] px-3 py-1 text-xs"
-                      }
-                    >
-                      Yearly %
-                    </button>
-                  </div>
-                  <label className="sm:col-span-2 flex items-center gap-2 text-sm text-[var(--text)]">
-                    <input
-                      type="checkbox"
-                      checked={autoCalcTotal}
-                      onChange={(e) => setAutoCalcTotal(e.target.checked)}
-                    />
-                    Auto-calculate total (principal + interest)
-                  </label>
-                  <label className="text-xs text-secondary">
-                    Principal
-                    <input
-                      required
-                      type="number"
-                      min={0.01}
-                      step="0.01"
-                      value={credPrincipal}
-                      onChange={(e) => setCredPrincipal(e.target.value)}
-                      className="input-field mt-1 w-full"
-                    />
-                  </label>
-                  {!autoCalcTotal && (
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <label className="text-xs text-secondary sm:col-span-2">
+                      Who I owe
+                      <input
+                        required
+                        value={credName}
+                        onChange={(e) => setCredName(e.target.value)}
+                        className="input-field mt-1 w-full"
+                        placeholder="Name, bank, SACCO, shop…"
+                      />
+                    </label>
+                    <label className="text-xs text-secondary sm:col-span-2">
+                      Reason for borrowing
+                      <textarea
+                        value={borrowReason}
+                        onChange={(e) => setBorrowReason(e.target.value)}
+                        rows={2}
+                        className="input-field mt-1 w-full"
+                        placeholder="Why was this money borrowed?"
+                      />
+                    </label>
+
                     <label className="text-xs text-secondary">
-                      Total owed (manual)
+                      Principal (amount borrowed)
+                      <input
+                        required
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        value={credPrincipal}
+                        onChange={(e) => setCredPrincipal(e.target.value)}
+                        className="input-field mt-1 w-full"
+                        placeholder="Without interest"
+                      />
+                    </label>
+
+                    <div className="text-xs text-secondary">
+                      <span className="block">Interest period</span>
+                      <div className="mt-1 flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setInterestPeriod("MONTHLY")}
+                          className={
+                            interestPeriod === "MONTHLY"
+                              ? "rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-white"
+                              : "rounded-full border border-[var(--border)] px-3 py-1.5 text-xs"
+                          }
+                        >
+                          Monthly %
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setInterestPeriod("YEARLY")}
+                          className={
+                            interestPeriod === "YEARLY"
+                              ? "rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-white"
+                              : "rounded-full border border-[var(--border)] px-3 py-1.5 text-xs"
+                          }
+                        >
+                          Yearly %
+                        </button>
+                      </div>
+                    </div>
+
+                    <label className="text-xs text-secondary">
+                      Interest % ({interestPeriod === "MONTHLY" ? "per month" : "per year"})
                       <input
                         type="number"
                         min={0}
                         step="0.01"
-                        value={credTotal}
-                        onChange={(e) => setCredTotal(e.target.value)}
+                        value={credRate}
+                        onChange={(e) => setCredRate(e.target.value)}
                         className="input-field mt-1 w-full"
-                        required={!autoCalcTotal}
+                        placeholder="0 if none"
                       />
                     </label>
-                  )}
-                  <label className="text-xs text-secondary">
-                    Interest % ({interestPeriod === "MONTHLY" ? "per month" : "per year"})
-                    <input
-                      type="number"
-                      min={0}
-                      step="0.01"
-                      value={credRate}
-                      onChange={(e) => setCredRate(e.target.value)}
-                      className="input-field mt-1 w-full"
-                    />
-                  </label>
-                  <label className="text-xs text-secondary">
-                    When borrowed
-                    <input
-                      type="date"
-                      value={credBorrowed}
-                      onChange={(e) => setCredBorrowed(e.target.value)}
-                      className="input-field mt-1 w-full"
-                    />
-                  </label>
-                  <label className="text-xs text-secondary">
-                    Payment deadline
-                    <input
-                      type="date"
-                      value={credDeadline}
-                      onChange={(e) => setCredDeadline(e.target.value)}
-                      className="input-field mt-1 w-full"
-                    />
-                    <span className="mt-1 block text-[0.65rem] text-muted">
-                      Your target date to finish paying — or the lender’s due date. Used for
-                      progress over time (days / weeks / months / years).
-                    </span>
-                  </label>
+
+                    <label className="flex items-end gap-2 pb-2 text-sm text-[var(--text)]">
+                      <input
+                        type="checkbox"
+                        checked={autoCalcTotal}
+                        onChange={(e) => setAutoCalcTotal(e.target.checked)}
+                      />
+                      <span>
+                        Auto total = principal + interest
+                        <span className="block text-[0.65rem] text-muted">
+                          Uncheck to type total owed manually
+                        </span>
+                      </span>
+                    </label>
+
+                    <label className="text-xs text-secondary sm:col-span-2">
+                      Total owed (principal + interest)
+                      <input
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        value={
+                          autoCalcTotal
+                            ? (() => {
+                                const p = Number(
+                                  String(credPrincipal).replace(/,/g, "").trim(),
+                                );
+                                const r = Number(
+                                  String(credRate).replace(/,/g, "").trim() || "0",
+                                );
+                                if (!Number.isFinite(p) || p <= 0) return "";
+                                const interest = Number.isFinite(r) ? p * (r / 100) : 0;
+                                return String(
+                                  Math.round((p + interest) * 100) / 100,
+                                );
+                              })()
+                            : credTotal
+                        }
+                        onChange={(e) => {
+                          if (!autoCalcTotal) setCredTotal(e.target.value);
+                        }}
+                        readOnly={autoCalcTotal}
+                        required={!autoCalcTotal}
+                        className={`input-field mt-1 w-full ${autoCalcTotal ? "bg-[var(--border)]/40" : ""}`}
+                        placeholder={
+                          autoCalcTotal
+                            ? "Calculated from principal + interest"
+                            : "Enter total including interest"
+                        }
+                      />
+                      <span className="mt-1 block text-[0.65rem] text-muted">
+                        {autoCalcTotal
+                          ? "Principal stays separate. Total updates when you change principal or interest rate. Use 0% interest if not applicable."
+                          : "Enter the full amount you must repay. Principal above stays the original borrow amount."}
+                      </span>
+                    </label>
+
+                    <label className="text-xs text-secondary">
+                      When borrowed
+                      <input
+                        type="date"
+                        value={credBorrowed}
+                        onChange={(e) => setCredBorrowed(e.target.value)}
+                        className="input-field mt-1 w-full"
+                      />
+                    </label>
+                    <label className="text-xs text-secondary">
+                      Payment deadline
+                      <input
+                        type="date"
+                        value={credDeadline}
+                        onChange={(e) => setCredDeadline(e.target.value)}
+                        className="input-field mt-1 w-full"
+                      />
+                      <span className="mt-1 block text-[0.65rem] text-muted">
+                        Your target finish date or the lender’s due date.
+                      </span>
+                    </label>
+                  </div>
+
                   <div className="sm:col-span-2 flex gap-2">
                     <button type="submit" disabled={busy} className="btn-primary">
                       {busy ? "Saving…" : editGoalId ? "Update debt" : "Save creditor"}
