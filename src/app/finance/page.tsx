@@ -4,6 +4,7 @@ import { FormEvent, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { UserButton } from "@clerk/nextjs";
 import { AppShell } from "@/components/layout/AppShell";
+import { repaymentProgress } from "@/lib/debt-progress";
 import { MoodCanvas } from "@/components/ui/MoodCanvas";
 
 type Tab = "overview" | "creditors" | "accounts" | "expenses" | "assets";
@@ -47,6 +48,13 @@ export default function FinanceHubPage() {
       amountPaid: number;
       currency: string;
       goalTitle: string;
+      deadline?: string | null;
+      borrowedAt?: string | null;
+      borrowReason?: string | null;
+      principal?: number | null;
+      interestRate?: number | null;
+      interestPeriod?: string;
+      autoCalcTotal?: boolean;
     }[]
   >([]);
   const [accounts, setAccounts] = useState<
@@ -601,6 +609,10 @@ export default function FinanceHubPage() {
                       onChange={(e) => setCredDeadline(e.target.value)}
                       className="input-field mt-1 w-full"
                     />
+                    <span className="mt-1 block text-[0.65rem] text-muted">
+                      Your target date to finish paying — or the lender’s due date. Used for
+                      progress over time (days / weeks / months / years).
+                    </span>
                   </label>
                   <div className="sm:col-span-2 flex gap-2">
                     <button type="submit" disabled={busy} className="btn-primary">
@@ -640,6 +652,37 @@ export default function FinanceHubPage() {
                             {money(c.totalOwed, c.currency)}
                           </span>
                         </p>
+                        {(() => {
+                          const p = repaymentProgress({
+                            totalOwed: c.totalOwed,
+                            amountPaid: c.amountPaid,
+                            balance: c.balance,
+                            deadline: c.deadline,
+                            start: (c as { borrowedAt?: string }).borrowedAt,
+                          });
+                          return (
+                            <div className="mt-2 max-w-md space-y-1">
+                              <div className="flex justify-between text-[0.7rem] text-secondary">
+                                <span>{p.pctPaid}% repaid</span>
+                                <span>{p.remainingLabel}</span>
+                              </div>
+                              <div className="h-2 overflow-hidden rounded-full bg-[var(--border)]">
+                                <div
+                                  className="h-full rounded-full bg-primary transition-all"
+                                  style={{ width: `${p.pctPaid}%` }}
+                                />
+                              </div>
+                              {p.scheduleHint && (
+                                <p className="text-[0.65rem] text-muted">{p.scheduleHint}</p>
+                              )}
+                              {!p.onTrack && p.balance > 0 && c.deadline && (
+                                <p className="text-[0.65rem] text-amber-700">
+                                  Behind schedule vs time elapsed — consider a higher payment.
+                                </p>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </div>
                       <div className="flex gap-2">
                         <Link
