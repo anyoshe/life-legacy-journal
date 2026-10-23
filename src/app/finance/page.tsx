@@ -93,6 +93,10 @@ export default function FinanceHubPage() {
   const [credBorrowed, setCredBorrowed] = useState("");
   const [credDeadline, setCredDeadline] = useState("");
   const [showAddCreditor, setShowAddCreditor] = useState(false);
+  const [interestPeriod, setInterestPeriod] = useState<"MONTHLY" | "YEARLY">("YEARLY");
+  const [autoCalcTotal, setAutoCalcTotal] = useState(true);
+  const [borrowReason, setBorrowReason] = useState("");
+  const [editGoalId, setEditGoalId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
@@ -265,12 +269,17 @@ export default function FinanceHubPage() {
         body: JSON.stringify({
           creditorName: credName.trim(),
           principal: Number(String(credPrincipal).replace(/,/g, "").trim()),
-          totalOwed: credTotal.trim()
-            ? Number(String(credTotal).replace(/,/g, "").trim())
-            : null,
+          totalOwed: autoCalcTotal
+            ? null
+            : credTotal.trim()
+              ? Number(String(credTotal).replace(/,/g, "").trim())
+              : null,
           interestRate: credRate.trim()
             ? Number(String(credRate).replace(/,/g, "").trim())
             : null,
+          interestPeriod,
+          autoCalcTotal,
+          borrowReason: borrowReason.trim() || null,
           borrowedAt: credBorrowed || null,
           deadline: credDeadline || null,
           currency: "KES",
@@ -284,6 +293,10 @@ export default function FinanceHubPage() {
       setCredRate("");
       setCredBorrowed("");
       setCredDeadline("");
+      setBorrowReason("");
+      setInterestPeriod("YEARLY");
+      setAutoCalcTotal(true);
+      setEditGoalId(null);
       setShowAddCreditor(false);
       await load();
     } catch (err) {
@@ -291,6 +304,89 @@ export default function FinanceHubPage() {
     } finally {
       setBusy(false);
     }
+  }
+
+  function fillFormFromCreditor(c: {
+    goalId: string;
+    creditorName: string;
+    principal?: number | null;
+    interestRate?: number | null;
+    interestPeriod?: string;
+    autoCalcTotal?: boolean;
+    totalOwed: number;
+    borrowReason?: string | null;
+    borrowedAt?: string | null;
+    deadline?: string | null;
+  }) {
+    setEditGoalId(c.goalId);
+    setShowAddCreditor(true);
+    setCredName(c.creditorName || "");
+    setCredPrincipal(c.principal != null ? String(c.principal) : "");
+    setCredTotal(String(c.totalOwed ?? ""));
+    setCredRate(c.interestRate != null ? String(c.interestRate) : "");
+    setInterestPeriod(
+      c.interestPeriod === "MONTHLY" ? "MONTHLY" : "YEARLY",
+    );
+    setAutoCalcTotal(c.autoCalcTotal !== false);
+    setBorrowReason(c.borrowReason || "");
+    setCredBorrowed(
+      c.borrowedAt ? String(c.borrowedAt).slice(0, 10) : "",
+    );
+    setCredDeadline(
+      c.deadline ? String(c.deadline).slice(0, 10) : "",
+    );
+  }
+
+  async function saveCreditorForm(e: FormEvent) {
+    e.preventDefault();
+    if (editGoalId) {
+      setBusy(true);
+      setError(null);
+      try {
+        const principalNum = Number(String(credPrincipal).replace(/,/g, "").trim());
+        if (!credName.trim() || !Number.isFinite(principalNum) || principalNum <= 0) {
+          throw new Error("Name and principal greater than zero are required.");
+        }
+        const res = await fetch(`/api/finance/creditors/${editGoalId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            creditorName: credName.trim(),
+            principal: principalNum,
+            totalOwed: autoCalcTotal
+              ? null
+              : credTotal.trim()
+                ? Number(String(credTotal).replace(/,/g, "").trim())
+                : null,
+            interestRate: credRate.trim()
+              ? Number(String(credRate).replace(/,/g, "").trim())
+              : null,
+            interestPeriod,
+            autoCalcTotal,
+            borrowReason: borrowReason.trim() || null,
+            borrowedAt: credBorrowed || null,
+            deadline: credDeadline || null,
+            currency: "KES",
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Could not update debt.");
+        setEditGoalId(null);
+        setShowAddCreditor(false);
+        setCredName("");
+        setCredPrincipal("");
+        setCredTotal("");
+        setCredRate("");
+        setBorrowReason("");
+        await load();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Could not update.");
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
+    await addCreditor(e);
   }
 
   return (
@@ -392,11 +488,11 @@ export default function FinanceHubPage() {
 
               {showAddCreditor && (
                 <form
-                  onSubmit={addCreditor}
+                  onSubmit={saveCreditorForm}
                   className="card grid gap-3 border-2 border-primary/20 p-4 sm:grid-cols-2"
                 >
                   <p className="sm:col-span-2 text-sm font-semibold text-[var(--text)]">
-                    New creditor
+                    {editGoalId ? "Edit debt record" : "New creditor"}
                   </p>
                   <label className="text-xs text-secondary sm:col-span-2">
                     Who I owe
@@ -407,6 +503,49 @@ export default function FinanceHubPage() {
                       className="input-field mt-1 w-full"
                       placeholder="Name, bank, SACCO, shop…"
                     />
+                  </label>
+                  <label className="text-xs text-secondary sm:col-span-2">
+                    Reason for borrowing
+                    <textarea
+                      value={borrowReason}
+                      onChange={(e) => setBorrowReason(e.target.value)}
+                      rows={2}
+                      className="input-field mt-1 w-full"
+                      placeholder="Why was this money borrowed?"
+                    />
+                  </label>
+                  <div className="sm:col-span-2 flex flex-wrap gap-2">
+                    <span className="w-full text-xs text-secondary">Interest period</span>
+                    <button
+                      type="button"
+                      onClick={() => setInterestPeriod("MONTHLY")}
+                      className={
+                        interestPeriod === "MONTHLY"
+                          ? "rounded-full bg-primary px-3 py-1 text-xs font-semibold text-white"
+                          : "rounded-full border border-[var(--border)] px-3 py-1 text-xs"
+                      }
+                    >
+                      Monthly %
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setInterestPeriod("YEARLY")}
+                      className={
+                        interestPeriod === "YEARLY"
+                          ? "rounded-full bg-primary px-3 py-1 text-xs font-semibold text-white"
+                          : "rounded-full border border-[var(--border)] px-3 py-1 text-xs"
+                      }
+                    >
+                      Yearly %
+                    </button>
+                  </div>
+                  <label className="sm:col-span-2 flex items-center gap-2 text-sm text-[var(--text)]">
+                    <input
+                      type="checkbox"
+                      checked={autoCalcTotal}
+                      onChange={(e) => setAutoCalcTotal(e.target.checked)}
+                    />
+                    Auto-calculate total (principal + interest)
                   </label>
                   <label className="text-xs text-secondary">
                     Principal
@@ -420,20 +559,22 @@ export default function FinanceHubPage() {
                       className="input-field mt-1 w-full"
                     />
                   </label>
+                  {!autoCalcTotal && (
+                    <label className="text-xs text-secondary">
+                      Total owed (manual)
+                      <input
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        value={credTotal}
+                        onChange={(e) => setCredTotal(e.target.value)}
+                        className="input-field mt-1 w-full"
+                        required={!autoCalcTotal}
+                      />
+                    </label>
+                  )}
                   <label className="text-xs text-secondary">
-                    Total owed (optional)
-                    <input
-                      type="number"
-                      min={0}
-                      step="0.01"
-                      value={credTotal}
-                      onChange={(e) => setCredTotal(e.target.value)}
-                      className="input-field mt-1 w-full"
-                      placeholder="Defaults to principal"
-                    />
-                  </label>
-                  <label className="text-xs text-secondary">
-                    Interest % / year
+                    Interest % ({interestPeriod === "MONTHLY" ? "per month" : "per year"})
                     <input
                       type="number"
                       min={0}
@@ -463,7 +604,7 @@ export default function FinanceHubPage() {
                   </label>
                   <div className="sm:col-span-2 flex gap-2">
                     <button type="submit" disabled={busy} className="btn-primary">
-                      {busy ? "Saving…" : "Save creditor"}
+                      {busy ? "Saving…" : editGoalId ? "Update debt" : "Save creditor"}
                     </button>
                   </div>
                 </form>
@@ -483,6 +624,11 @@ export default function FinanceHubPage() {
                       <div>
                         <p className="font-semibold text-[var(--text)]">{c.creditorName}</p>
                         <p className="text-xs text-secondary">{c.goalTitle}</p>
+                        {"borrowReason" in c && (c as { borrowReason?: string }).borrowReason && (
+                          <p className="mt-1 text-xs text-secondary line-clamp-2">
+                            {(c as { borrowReason?: string }).borrowReason}
+                          </p>
+                        )}
                         <p className="mt-1 text-sm">
                           Balance{" "}
                           <span className="font-semibold text-primary">
@@ -502,6 +648,13 @@ export default function FinanceHubPage() {
                         >
                           Open goal
                         </Link>
+                        <button
+                          type="button"
+                          className="rounded-full border border-[var(--border)] px-3 py-1.5 text-xs font-medium"
+                          onClick={() => fillFormFromCreditor(c as never)}
+                        >
+                          Edit
+                        </button>
                         <button
                           type="button"
                           className="btn-primary rounded-full px-4 py-1.5 text-xs"

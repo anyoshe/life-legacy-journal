@@ -72,8 +72,8 @@ model User {
   moneyAccounts MoneyAccount[]
   personalAssets PersonalAsset[]
   moneyExpenses MoneyExpense[]
-  memories      Memory[]
-  subscriptionTier String @default("FREE") // FREE | PLUS
+  memories Memory[]
+  subscriptionTier String @default("FREE")
 
   @@map("users")
 }
@@ -237,15 +237,14 @@ model Entry {
 // ============================================================
 
 
-
-enum MemoryKind {
-  MEMORY
-  ACHIEVEMENT
-}
-
 enum FinanceMode {
   DEBT
   SAVINGS
+}
+
+enum InterestPeriod {
+  MONTHLY
+  YEARLY
 }
 
 enum FinanceTxnKind {
@@ -646,7 +645,7 @@ model Notification {
 model AiMemory {
   id        String   @id @default(cuid())
   userId    String   @unique
-  memory    Json     // editable summary of patterns, preferences, long-term context
+  memory    Json
   updatedAt DateTime @updatedAt
 
   @@map("ai_memory")
@@ -665,11 +664,14 @@ model FinancePlan {
   // Debt
   creditorName   String?
   borrowedAt     DateTime?
+  borrowReason   String?   @db.Text
   principal      Float?
-  interestRate   Float?    // annual percent, e.g. 12 = 12%
-  totalOwed      Float?    // principal + interest snapshot (editable / accrued)
+  interestRate   Float?
+  interestPeriod InterestPeriod @default(YEARLY)
+  autoCalcTotal  Boolean   @default(true)
+  totalOwed      Float?
   amountPaid     Float     @default(0)
-  balance        Float?    // remaining = totalOwed - amountPaid
+  balance        Float?
 
   // Savings
   targetAmount        Float?
@@ -762,17 +764,18 @@ model MoneyExpense {
   @@map("money_expenses")
 }
 
-// ============================================================
-// MEMORY ALBUM — photos + stories (free: 5 photos; PLUS: more)
-// ============================================================
+enum MemoryKind {
+  MEMORY
+  ACHIEVEMENT
+}
 
 model Memory {
   id        String     @id @default(cuid())
   userId    String
   title     String
-  story     String     @db.Text  // what this photo reminds them of
+  story     String     @db.Text
   kind      MemoryKind @default(MEMORY)
-  imageUrl  String     // /uploads/memories/...
+  imageUrl  String
   filename  String?
   size      Int?
   createdAt DateTime   @default(now())
@@ -783,4 +786,3 @@ model Memory {
   @@index([userId, createdAt])
   @@map("memories")
 }
-
