@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 type Plan = {
@@ -220,6 +221,26 @@ export function FinanceGoalPanel({ goalId }: { goalId: string }) {
           Debt: who you owe, principal, interest, payments, balance. Savings:
           target, deposits, remaining. Every movement is timestamped.
         </p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Link
+            href="/finance?tab=creditors"
+            className="inline-flex rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-white"
+          >
+            All creditors &amp; Pay →
+          </Link>
+          <Link
+            href="/finance?tab=accounts"
+            className="inline-flex rounded-full border border-[var(--border)] px-3 py-1.5 text-xs font-medium text-[var(--text)]"
+          >
+            Money I have
+          </Link>
+          <Link
+            href="/finance"
+            className="inline-flex rounded-full border border-[var(--border)] px-3 py-1.5 text-xs font-medium text-[var(--text)]"
+          >
+            Finance hub overview
+          </Link>
+        </div>
       </div>
 
       {error && (

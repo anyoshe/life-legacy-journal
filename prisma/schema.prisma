@@ -72,6 +72,8 @@ model User {
   moneyAccounts MoneyAccount[]
   personalAssets PersonalAsset[]
   moneyExpenses MoneyExpense[]
+  memories      Memory[]
+  subscriptionTier String @default("FREE") // FREE | PLUS
 
   @@map("users")
 }
@@ -234,6 +236,12 @@ model Entry {
 // GOALS SYSTEM (Hierarchical + SMART)
 // ============================================================
 
+
+
+enum MemoryKind {
+  MEMORY
+  ACHIEVEMENT
+}
 
 enum FinanceMode {
   DEBT
@@ -754,4 +762,25 @@ model MoneyExpense {
   @@map("money_expenses")
 }
 
+// ============================================================
+// MEMORY ALBUM — photos + stories (free: 5 photos; PLUS: more)
+// ============================================================
+
+model Memory {
+  id        String     @id @default(cuid())
+  userId    String
+  title     String
+  story     String     @db.Text  // what this photo reminds them of
+  kind      MemoryKind @default(MEMORY)
+  imageUrl  String     // /uploads/memories/...
+  filename  String?
+  size      Int?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("memories")
+}
 

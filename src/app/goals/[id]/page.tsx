@@ -10,7 +10,6 @@ import { GoalRollupSummary } from "@/components/goals/GoalRollupSummary";
 import { MoodCanvas } from "@/components/ui/MoodCanvas";
 import { UserButton } from "@clerk/nextjs";
 import { AppShell } from "@/components/layout/AppShell";
-import { FinanceGoalPanel } from "@/components/goals/FinanceGoalPanel";
 
 type Milestone = {
   id: string;
@@ -325,6 +324,32 @@ export default function GoalDetailPage() {
           <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
             {error}
           </p>
+        )}
+
+
+        {goal.area === "FINANCIAL" && (
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--achievement)]/30 bg-[var(--surface-gold)] px-4 py-3">
+            <div>
+              <p className="text-sm font-semibold text-[var(--text)]">Financial tracker</p>
+              <p className="text-xs text-secondary">
+                Creditors, money you have, expenses, and payments live in the Finance hub.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Link
+                href="/finance?tab=creditors"
+                className="rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white"
+              >
+                Open financial tracker
+              </Link>
+              <Link
+                href="/finance"
+                className="rounded-full border border-[var(--border)] bg-white px-4 py-2 text-sm font-medium text-[var(--text)]"
+              >
+                Overview
+              </Link>
+            </div>
+          </div>
         )}
 
         {/* Overview — view or edit core fields */}
@@ -806,7 +831,6 @@ export default function GoalDetailPage() {
           </section>
         )}
       
-        <FinanceGoalPanel goalId={goal.id} />
 </main>
     </div>
     </MoodCanvas>

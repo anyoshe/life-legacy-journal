@@ -86,6 +86,13 @@ export default function FinanceHubPage() {
   const [expFunding, setExpFunding] = useState("");
   const [assetName, setAssetName] = useState("");
   const [assetValue, setAssetValue] = useState("");
+  const [credName, setCredName] = useState("");
+  const [credPrincipal, setCredPrincipal] = useState("");
+  const [credTotal, setCredTotal] = useState("");
+  const [credRate, setCredRate] = useState("");
+  const [credBorrowed, setCredBorrowed] = useState("");
+  const [credDeadline, setCredDeadline] = useState("");
+  const [showAddCreditor, setShowAddCreditor] = useState(false);
 
   const load = useCallback(async () => {
     setError(null);
@@ -113,6 +120,17 @@ export default function FinanceHubPage() {
   useEffect(() => {
     void load();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    try {
+      const q = new URLSearchParams(window.location.search).get("tab") as Tab | null;
+      if (q && ["overview", "creditors", "accounts", "expenses", "assets"].includes(q)) {
+        setTab(q);
+      }
+    } catch {
+      /* ignore */
+    }
+  }, []);
 
   async function submitPay(e: FormEvent) {
     e.preventDefault();
@@ -228,6 +246,53 @@ export default function FinanceHubPage() {
     }
   }
 
+  async function addCreditor(e: FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      const name = credName.trim();
+      const principalNum = Number(String(credPrincipal).replace(/,/g, "").trim());
+      if (!name) {
+        throw new Error("Enter who you owe.");
+      }
+      if (!Number.isFinite(principalNum) || principalNum <= 0) {
+        throw new Error("Enter a principal amount greater than zero.");
+      }
+      const res = await fetch("/api/finance/creditors", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          creditorName: credName.trim(),
+          principal: Number(String(credPrincipal).replace(/,/g, "").trim()),
+          totalOwed: credTotal.trim()
+            ? Number(String(credTotal).replace(/,/g, "").trim())
+            : null,
+          interestRate: credRate.trim()
+            ? Number(String(credRate).replace(/,/g, "").trim())
+            : null,
+          borrowedAt: credBorrowed || null,
+          deadline: credDeadline || null,
+          currency: "KES",
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Could not add creditor.");
+      setCredName("");
+      setCredPrincipal("");
+      setCredTotal("");
+      setCredRate("");
+      setCredBorrowed("");
+      setCredDeadline("");
+      setShowAddCreditor(false);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not add creditor.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <AppShell rightSlot={<UserButton />}>
       <MoodCanvas mood="goals">
@@ -251,7 +316,16 @@ export default function FinanceHubPage() {
               <button
                 key={t.id}
                 type="button"
-                onClick={() => setTab(t.id)}
+                onClick={() => {
+                  setTab(t.id);
+                  try {
+                    const url = new URL(window.location.href);
+                    url.searchParams.set("tab", t.id);
+                    window.history.replaceState({}, "", url.toString());
+                  } catch {
+                    /* ignore */
+                  }
+                }}
                 className={
                   tab === t.id
                     ? "rounded-full bg-primary px-3 py-1.5 text-sm font-semibold text-white"
@@ -302,15 +376,104 @@ export default function FinanceHubPage() {
 
           {tab === "creditors" && (
             <div className="space-y-4">
-              <p className="text-sm text-secondary">
-                Everyone you still owe. Use <strong>Pay</strong> to clear part or all from an
-                account — balance updates and the account is debited.
-              </p>
-              {creditors.length === 0 ? (
-                <p className="text-sm text-secondary">
-                  No open debts. Create a Financial goal as Debt free to add a creditor.
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-sm text-secondary max-w-xl">
+                  List every person or institution you owe. Add as many as you need — total debt
+                  is the sum of all balances. Use <strong>Pay</strong> on each row.
                 </p>
-              ) : (
+                <button
+                  type="button"
+                  onClick={() => setShowAddCreditor((v) => !v)}
+                  className="btn-primary rounded-full px-4 py-2 text-sm"
+                >
+                  {showAddCreditor ? "Close form" : "+ Add creditor"}
+                </button>
+              </div>
+
+              {showAddCreditor && (
+                <form
+                  onSubmit={addCreditor}
+                  className="card grid gap-3 border-2 border-primary/20 p-4 sm:grid-cols-2"
+                >
+                  <p className="sm:col-span-2 text-sm font-semibold text-[var(--text)]">
+                    New creditor
+                  </p>
+                  <label className="text-xs text-secondary sm:col-span-2">
+                    Who I owe
+                    <input
+                      required
+                      value={credName}
+                      onChange={(e) => setCredName(e.target.value)}
+                      className="input-field mt-1 w-full"
+                      placeholder="Name, bank, SACCO, shop…"
+                    />
+                  </label>
+                  <label className="text-xs text-secondary">
+                    Principal
+                    <input
+                      required
+                      type="number"
+                      min={0.01}
+                      step="0.01"
+                      value={credPrincipal}
+                      onChange={(e) => setCredPrincipal(e.target.value)}
+                      className="input-field mt-1 w-full"
+                    />
+                  </label>
+                  <label className="text-xs text-secondary">
+                    Total owed (optional)
+                    <input
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      value={credTotal}
+                      onChange={(e) => setCredTotal(e.target.value)}
+                      className="input-field mt-1 w-full"
+                      placeholder="Defaults to principal"
+                    />
+                  </label>
+                  <label className="text-xs text-secondary">
+                    Interest % / year
+                    <input
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      value={credRate}
+                      onChange={(e) => setCredRate(e.target.value)}
+                      className="input-field mt-1 w-full"
+                    />
+                  </label>
+                  <label className="text-xs text-secondary">
+                    When borrowed
+                    <input
+                      type="date"
+                      value={credBorrowed}
+                      onChange={(e) => setCredBorrowed(e.target.value)}
+                      className="input-field mt-1 w-full"
+                    />
+                  </label>
+                  <label className="text-xs text-secondary">
+                    Payment deadline
+                    <input
+                      type="date"
+                      value={credDeadline}
+                      onChange={(e) => setCredDeadline(e.target.value)}
+                      className="input-field mt-1 w-full"
+                    />
+                  </label>
+                  <div className="sm:col-span-2 flex gap-2">
+                    <button type="submit" disabled={busy} className="btn-primary">
+                      {busy ? "Saving…" : "Save creditor"}
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {creditors.length === 0 && !showAddCreditor ? (
+                <p className="text-sm text-secondary">
+                  No creditors yet. Click <strong>+ Add creditor</strong> to record the first debt.
+                </p>
+              ) : creditors.length === 0 ? null : (
                 <ul className="space-y-2">
                   {creditors.map((c) => (
                     <li
