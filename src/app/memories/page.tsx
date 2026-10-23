@@ -106,12 +106,15 @@ export default function MemoriesPage() {
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <a
-                href="/api/memories/download"
+              <button
+                type="button"
+                onClick={() => {
+                  window.location.assign("/api/memories/download");
+                }}
                 className="rounded-full border border-[var(--border)] bg-white px-4 py-2 text-sm font-medium"
               >
                 Download album
-              </a>
+              </button>
               <button
                 type="button"
                 onClick={() => setShowForm((v) => !v)}
