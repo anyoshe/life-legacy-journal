@@ -236,12 +236,6 @@ export default function GoalDetailPage() {
       setError("Milestone title is required.");
       return;
     }
-    if (raw.length > 5000) {
-      setError(
-        `Milestone title is too long (${raw.length} / 5000 characters). Shorten it and try again.`,
-      );
-      return;
-    }
     if (milestoneEndDate) {
       const end = new Date(milestoneEndDate + "T12:00:00.000Z");
       if (Number.isNaN(end.getTime())) {
@@ -707,21 +701,11 @@ export default function GoalDetailPage() {
                   }}
                   placeholder="What must be true when this milestone is done?"
                   rows={3}
-                  maxLength={5000}
                   required
                   className="mt-1 w-full rounded-lg border border-[var(--border)] bg-background px-3 py-2 text-sm text-[var(--text)]"
                 />
-                <span className="mt-1 flex justify-between gap-2 text-[0.7rem] text-secondary">
-                  <span>Required. You can write a full sentence or short paragraph.</span>
-                  <span
-                    className={
-                      milestoneTitle.length > 4900
-                        ? "shrink-0 font-medium text-amber-700"
-                        : "shrink-0"
-                    }
-                  >
-                    {milestoneTitle.length} / 5000
-                  </span>
+                <span className="mt-1 text-[0.7rem] text-secondary">
+                  Required. No character limit — write as much detail as you need.
                 </span>
               </label>
               <label className="block text-xs font-medium text-secondary">
@@ -735,11 +719,7 @@ export default function GoalDetailPage() {
               </label>
               <button
                 type="submit"
-                disabled={
-                  saving ||
-                  !milestoneTitle.trim() ||
-                  milestoneTitle.length > 5000
-                }
+                disabled={saving || !milestoneTitle.trim()}
                 className="inline-flex items-center gap-1 rounded-lg bg-[var(--primary)] px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"
               >
                 <Plus size={16} /> Add milestone

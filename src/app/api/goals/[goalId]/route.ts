@@ -85,8 +85,8 @@ const updateSchema = z.object({
   // Milestones: title + optional end date only
   addMilestone: z
     .object({
-      title: z.string().trim().min(1).max(5000),
-      description: z.string().trim().max(5000).optional(),
+      title: z.string().trim().min(1), // no max — full notes allowed
+      description: z.string().trim().optional(),
       targetDate: dateInput,
     })
     .optional(),
