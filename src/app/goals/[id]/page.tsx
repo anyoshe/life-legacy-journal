@@ -863,6 +863,10 @@ export default function GoalDetailPage() {
                     <option value="DAILY">Daily</option>
                     <option value="WEEKDAYS">Weekdays</option>
                     <option value="WEEKLY">Weekly</option>
+                    <option value="MONTHLY">Monthly</option>
+                    <option value="QUARTERLY">Quarterly</option>
+                    <option value="YEARLY">Yearly</option>
+                    <option value="CUSTOM_DAYS">Custom days</option>
                   </select>
                 </label>
                 <label className="text-xs text-secondary">
