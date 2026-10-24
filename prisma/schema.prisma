@@ -337,7 +337,7 @@ model Goal {
   childGoals Goal[]    @relation("GoalHierarchy")
   milestones Milestone[]
   actions    Action[]
-  habit      Habit?
+  habits     Habit[]
   entries    Entry[]
   todos        Todo[]
   financePlan  FinancePlan?
@@ -362,6 +362,11 @@ model Milestone {
   goal Goal @relation(fields: [goalId], references: [id], onDelete: Cascade)
 
   @@map("milestones")
+}
+
+enum HabitContributionRole {
+  KEY
+  SUPPORTING
 }
 
 enum ActionRecurrence {
@@ -414,10 +419,12 @@ model ActionLog {
 model Habit {
   id          String   @id @default(cuid())
   userId      String
-  goalId      String?  @unique  // optional link to a FREQUENCY/HABIT goal
+  goalId      String?  // many habits can support one goal
   title       String
   description String?
   targetPerWeek Int    @default(1)
+  /// KEY = primary driver of the goal; SUPPORTING = smaller share of progress
+  contributionRole HabitContributionRole @default(SUPPORTING)
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -426,6 +433,8 @@ model Habit {
   goal Goal?     @relation(fields: [goalId], references: [id], onDelete: SetNull)
   logs HabitLog[]
 
+  @@index([userId, isActive])
+  @@index([goalId])
   @@map("habits")
 }
 

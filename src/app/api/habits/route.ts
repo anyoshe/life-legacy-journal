@@ -16,6 +16,7 @@ const createSchema = z
     description: z.string().trim().max(2000).optional().nullable(),
     targetPerWeek: z.number().int().min(1).max(14).optional(),
     goalId: z.string().min(1).optional().nullable(),
+    contributionRole: z.enum(["KEY", "SUPPORTING"]).optional(),
   })
   .strict();
 
@@ -60,6 +61,7 @@ export async function GET() {
         targetPerWeek: h.targetPerWeek,
         goalId: h.goalId,
         goal: h.goal,
+        contributionRole: (h as { contributionRole?: string }).contributionRole ?? "SUPPORTING",
         doneToday,
         currentStreak: streaks.current,
         bestStreak: streaks.best,
@@ -102,6 +104,7 @@ export async function POST(request: NextRequest) {
       description: data.description || null,
       targetPerWeek: data.targetPerWeek ?? 7,
       goalId: data.goalId || null,
+      contributionRole: data.contributionRole || "SUPPORTING",
     },
     include: { goal: { select: { id: true, title: true, area: true } } },
   });

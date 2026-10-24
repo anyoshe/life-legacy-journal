@@ -1,28 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getCurrentDbUser } from "@/lib/auth";
-import { calendarDateOnly } from "@/lib/dates";
 import { prisma } from "@/lib/prisma";
+import { calendarDateOnly } from "@/lib/dates";
+import {
+  applyHabitContribution,
+  unitsPerHabitCheckIn,
+} from "@/lib/habit-goal-contribution";
 
 type RouteContext = { params: Promise<{ habitId: string }> };
 
 const patchSchema = z
   .object({
-    completed: z.boolean().optional(),
     title: z.string().trim().min(1).max(160).optional(),
     description: z.string().trim().max(2000).nullable().optional(),
     targetPerWeek: z.number().int().min(1).max(14).optional(),
     isActive: z.boolean().optional(),
+    completed: z.boolean().optional(),
+    goalId: z.string().min(1).nullable().optional(),
+    contributionRole: z.enum(["KEY", "SUPPORTING"]).optional(),
   })
   .strict();
 
-/**
- * Idempotent habit check-in:
- * - Completing when a completed log already exists for the date → no progress change
- * - Completing when no log → create log + contribute once
- * - Undo when completed log exists → delete log + reverse once
- * - Undo when no completed log → no progress change
- */
 async function toggleHabitIdempotent(options: {
   habitId: string;
   userId: string;
@@ -80,16 +79,38 @@ async function toggleHabitIdempotent(options: {
         where: { id: habit.goalId, userId },
       });
       if (goal) {
-        const current = goal.currentValue ?? 0;
-        const next =
-          transition === "complete"
-            ? current + 1
-            : Math.max(0, current - 1);
+        const role =
+          (habit as { contributionRole?: string }).contributionRole ??
+          "SUPPORTING";
+        const delta = unitsPerHabitCheckIn(
+          {
+            targetPerWeek: habit.targetPerWeek,
+            contributionRole: role,
+          },
+          {
+            type: goal.type,
+            targetValue: goal.targetValue,
+            currentValue: goal.currentValue,
+            frequencyTarget: goal.frequencyTarget,
+            deadline: goal.deadline,
+          },
+        );
+        const applied = applyHabitContribution({
+          currentValue: goal.currentValue,
+          targetValue: goal.targetValue,
+          delta,
+          completing: transition === "complete",
+        });
         await tx.goal.update({
           where: { id: goal.id },
           data: {
-            currentValue: next,
+            currentValue: applied.currentValue,
             lastReviewedAt: new Date(),
+            ...(applied.completed
+              ? { status: "COMPLETED" as const }
+              : goal.status === "COMPLETED"
+                ? { status: "ACTIVE" as const }
+                : {}),
           },
         });
       }
@@ -141,11 +162,24 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
     return NextResponse.json({ error: "Habit not found." }, { status: 404 });
   }
 
+  if (data.goalId) {
+    const g = await prisma.goal.findFirst({
+      where: { id: data.goalId, userId: user.id },
+    });
+    if (!g) {
+      return NextResponse.json({ error: "Goal not found." }, { status: 404 });
+    }
+  }
+
   const meta: Record<string, unknown> = {};
   if (data.title !== undefined) meta.title = data.title;
   if (data.description !== undefined) meta.description = data.description;
   if (data.targetPerWeek !== undefined) meta.targetPerWeek = data.targetPerWeek;
   if (data.isActive !== undefined) meta.isActive = data.isActive;
+  if (data.goalId !== undefined) meta.goalId = data.goalId;
+  if (data.contributionRole !== undefined) {
+    meta.contributionRole = data.contributionRole;
+  }
   if (Object.keys(meta).length > 0) {
     await prisma.habit.update({ where: { id: habitId }, data: meta });
   }
@@ -154,7 +188,7 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
     where: { id: habitId },
     include: {
       logs: { where: { date: today }, take: 1 },
-      goal: { select: { id: true, title: true, area: true } },
+      goal: { select: { id: true, title: true, area: true, type: true } },
     },
   });
 
@@ -167,6 +201,9 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
           targetPerWeek: updated.targetPerWeek,
           goalId: updated.goalId,
           goal: updated.goal,
+          contributionRole:
+            (updated as { contributionRole?: string }).contributionRole ??
+            "SUPPORTING",
           doneToday: updated.logs[0]?.completed ?? false,
           isActive: updated.isActive,
         }
