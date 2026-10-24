@@ -188,10 +188,8 @@ export async function GET(_request: NextRequest, { params }: RouteContext) {
   ) {
     try {
       await ensureFinanceSubgoalsForRoot(user.id, goal.id);
-      goal = await loadGoal(goalId, user.id);
-      if (!goal) {
-        return NextResponse.json({ error: "Goal not found." }, { status: 404 });
-      }
+      const refreshed = await loadGoal(goalId, user.id);
+      if (refreshed) goal = refreshed;
     } catch (e) {
       console.error("ensureFinanceSubgoalsForRoot", e);
     }
@@ -199,8 +197,8 @@ export async function GET(_request: NextRequest, { params }: RouteContext) {
 
   return NextResponse.json({
     goal: {
-      ...goal,
-      actions: mapActions(goal.actions as never),
+      ...goal!,
+      actions: mapActions(goal!.actions as never),
       canEdit: true,
     },
   });
