@@ -48,14 +48,24 @@ const updateSchema = z
         title: z.string().trim().min(1).max(200),
         dueDate: z.string().datetime().optional(),
         notes: z.string().trim().max(2000).optional(),
-        recurrence: z.nativeEnum(ActionRecurrence).optional(),
+        recurrence: z
+          .enum([
+            "ONCE",
+            "DAILY",
+            "WEEKDAYS",
+            "WEEKLY",
+            "MONTHLY",
+            "QUARTERLY",
+            "YEARLY",
+            "CUSTOM_DAYS",
+          ])
+          .optional(),
         daysOfWeek: z.array(z.number().int().min(0).max(6)).max(7).optional(),
         timeOfDay: z
           .string()
-          .regex(/^([01]\d|2[0-3]):[0-5]\d$/)
           .optional()
           .nullable(),
-        contributionValue: z.number().finite().positive().optional().nullable(),
+        contributionValue: z.number().finite().nonnegative().optional().nullable(),
       })
       .optional(),
     deleteMilestoneId: z.string().min(1).optional(),
@@ -264,7 +274,7 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
   }
 
   if (data.addAction) {
-    const recurrence = data.addAction.recurrence ?? ActionRecurrence.ONCE;
+    const recurrence = (data.addAction.recurrence ?? "ONCE") as ActionRecurrence;
     await prisma.action.create({
       data: {
         goalId,
@@ -273,7 +283,7 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
         dueDate: data.addAction.dueDate ? new Date(data.addAction.dueDate) : null,
         recurrence,
         daysOfWeek: data.addAction.daysOfWeek ?? [],
-        timeOfDay: data.addAction.timeOfDay || null,
+        timeOfDay: data.addAction.timeOfDay ? data.addAction.timeOfDay : null,
         contributionValue: data.addAction.contributionValue ?? null,
       },
     });

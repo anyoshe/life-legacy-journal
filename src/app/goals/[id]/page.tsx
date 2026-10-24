@@ -205,7 +205,10 @@ export default function GoalDetailPage() {
         body: JSON.stringify(body),
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Update failed.");
+      if (!response.ok) {
+        const extra = data.details ? ` ${JSON.stringify(data.details)}` : "";
+        throw new Error((data.error || "Update failed.") + extra);
+      }
       setGoal(data.goal)
         // foundation for alignment context (non-blocking)
         fetch("/api/foundation")
