@@ -154,7 +154,8 @@ export async function POST(request: NextRequest) {
       const goal = await tx.goal.create({
         data: {
           userId: user.id,
-          parentGoalId: umbrella.id,
+          // Nest under "Clear all debts" sub-goal when user has a Financial root
+          parentGoalId: umbrella?.id ?? null,
           area: "FINANCIAL",
           type: "NUMERIC",
           title,

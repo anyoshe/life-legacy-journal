@@ -1,35 +1,101 @@
 import { prisma } from "@/lib/prisma";
 import type { Goal, Prisma } from "@prisma/client";
 
-export const UMBRELLA_DEBT_TITLE = "Clear all debts";
-export const UMBRELLA_SAVINGS_TITLE = "Build savings";
+/** Sub-goal under the user's main Financial goal — holds rolled-up debt totals */
+export const DEBT_SUBGOAL_TITLE = "Clear all debts";
+/** Sub-goal under Financial — holds rolled-up savings totals */
+export const SAVINGS_SUBGOAL_TITLE = "Build savings";
 
-/** Goals that have a FinancePlan are line-items — only manage them under /finance */
+/** @deprecated use DEBT_SUBGOAL_TITLE — kept so old lookups still match */
+export const UMBRELLA_DEBT_TITLE = DEBT_SUBGOAL_TITLE;
+export const UMBRELLA_SAVINGS_TITLE = SAVINGS_SUBGOAL_TITLE;
+
+/**
+ * Board / dashboard: line-item creditor & savings goals (with FinancePlan)
+ * stay off the main lists. Nested supporting goals without a plan still appear
+ * only under their parent when the UI expands them.
+ */
 export const boardGoalsWhere: Prisma.GoalWhereInput = {
   financePlan: null,
 };
 
-export async function ensureUmbrellaDebtGoal(userId: string): Promise<Goal> {
-  const existing = await prisma.goal.findFirst({
+/**
+ * Find the user's main Financial root goal (not a line-item, not a child).
+ * Does NOT create goals — avoids spawning extra FINANCIAL goals.
+ */
+export async function findFinanceRootGoal(
+  userId: string,
+): Promise<Goal | null> {
+  const roots = await prisma.goal.findMany({
     where: {
       userId,
       area: "FINANCIAL",
-      title: UMBRELLA_DEBT_TITLE,
+      parentGoalId: null,
+      financePlan: null,
+      status: { notIn: ["ARCHIVED", "ABANDONED"] },
+    },
+    orderBy: { createdAt: "asc" },
+  });
+  if (!roots.length) return null;
+  // Prefer an explicit "Financial" / life-area style title, else oldest root
+  const preferred = roots.find((g) =>
+    /financial|finance|money|wealth/i.test(g.title),
+  );
+  return preferred ?? roots[0];
+}
+
+/**
+ * Debt totals live on a *supporting* goal under the Financial root — not as a
+ * new top-level FINANCIAL goal. Only creates the sub-goal if a root exists.
+ * Returns null if the user has no Financial root yet (no silent top-level create).
+ */
+export async function ensureUmbrellaDebtGoal(
+  userId: string,
+): Promise<Goal | null> {
+  const root = await findFinanceRootGoal(userId);
+  if (!root) {
+    // Do not invent a top-level "Clear all debts" goal.
+    return null;
+  }
+
+  const existing = await prisma.goal.findFirst({
+    where: {
+      userId,
+      parentGoalId: root.id,
+      title: DEBT_SUBGOAL_TITLE,
       financePlan: null,
       status: { notIn: ["ARCHIVED", "ABANDONED"] },
     },
   });
   if (existing) return existing;
 
+  // Migrate legacy top-level umbrella under the root if present
+  const legacy = await prisma.goal.findFirst({
+    where: {
+      userId,
+      title: DEBT_SUBGOAL_TITLE,
+      financePlan: null,
+      parentGoalId: null,
+      status: { notIn: ["ARCHIVED", "ABANDONED"] },
+    },
+  });
+  if (legacy) {
+    return prisma.goal.update({
+      where: { id: legacy.id },
+      data: { parentGoalId: root.id, area: "FINANCIAL" },
+    });
+  }
+
   return prisma.goal.create({
     data: {
       userId,
+      parentGoalId: root.id,
       area: "FINANCIAL",
       type: "NUMERIC",
-      title: UMBRELLA_DEBT_TITLE,
-      why: "Cumulative progress clearing every creditor. Pay individual debts under Finance.",
+      title: DEBT_SUBGOAL_TITLE,
+      why: "Supporting goal under Financial — cumulative progress clearing creditors. Pay each under Finance → Creditors.",
       description:
-        "This goal is the sum of all your debts. Open Finance → Creditors to pay each one; this bar rises as you pay.",
+        "Totals roll up from individual debts. Expand Financial on the goals board to see this sub-goal.",
       unit: "KES",
       targetValue: 0,
       currentValue: 0,
@@ -39,27 +105,49 @@ export async function ensureUmbrellaDebtGoal(userId: string): Promise<Goal> {
   });
 }
 
-export async function ensureUmbrellaSavingsGoal(userId: string): Promise<Goal> {
+export async function ensureUmbrellaSavingsGoal(
+  userId: string,
+): Promise<Goal | null> {
+  const root = await findFinanceRootGoal(userId);
+  if (!root) return null;
+
   const existing = await prisma.goal.findFirst({
     where: {
       userId,
-      area: "FINANCIAL",
-      title: UMBRELLA_SAVINGS_TITLE,
+      parentGoalId: root.id,
+      title: SAVINGS_SUBGOAL_TITLE,
       financePlan: null,
       status: { notIn: ["ARCHIVED", "ABANDONED"] },
     },
   });
   if (existing) return existing;
 
+  const legacy = await prisma.goal.findFirst({
+    where: {
+      userId,
+      title: SAVINGS_SUBGOAL_TITLE,
+      financePlan: null,
+      parentGoalId: null,
+      status: { notIn: ["ARCHIVED", "ABANDONED"] },
+    },
+  });
+  if (legacy) {
+    return prisma.goal.update({
+      where: { id: legacy.id },
+      data: { parentGoalId: root.id, area: "FINANCIAL" },
+    });
+  }
+
   return prisma.goal.create({
     data: {
       userId,
+      parentGoalId: root.id,
       area: "FINANCIAL",
       type: "NUMERIC",
-      title: UMBRELLA_SAVINGS_TITLE,
-      why: "Cumulative savings across all targets. Contribute under Finance.",
+      title: SAVINGS_SUBGOAL_TITLE,
+      why: "Supporting goal under Financial — cumulative savings. Contribute under Finance.",
       description:
-        "Sum of all savings targets. Manage deposits under Finance; this bar rises as you save.",
+        "Totals roll up from savings targets. Expand Financial to see this sub-goal.",
       unit: "KES",
       targetValue: 0,
       currentValue: 0,
@@ -69,9 +157,9 @@ export async function ensureUmbrellaSavingsGoal(userId: string): Promise<Goal> {
   });
 }
 
-/** Roll up all DEBT finance plans into the umbrella debt goal. */
 export async function rollupDebtUmbrella(userId: string): Promise<void> {
   const umbrella = await ensureUmbrellaDebtGoal(userId);
+  if (!umbrella) return;
 
   const plans = await prisma.financePlan.findMany({
     where: {
@@ -97,7 +185,6 @@ export async function rollupDebtUmbrella(userId: string): Promise<void> {
     },
   });
 
-  // Link line-item goals under umbrella when missing parent
   const lineGoals = await prisma.goal.findMany({
     where: {
       userId,
@@ -114,9 +201,9 @@ export async function rollupDebtUmbrella(userId: string): Promise<void> {
   }
 }
 
-/** Roll up all SAVINGS finance plans into the umbrella savings goal. */
 export async function rollupSavingsUmbrella(userId: string): Promise<void> {
   const umbrella = await ensureUmbrellaSavingsGoal(userId);
+  if (!umbrella) return;
 
   const plans = await prisma.financePlan.findMany({
     where: {
