@@ -36,13 +36,7 @@ const updateSchema = z
         targetDate: z.string().datetime().optional().nullable(),
       })
       .optional(),
-    /** Update target date on an existing milestone */
-    milestoneTargetDate: z
-      .object({
-        milestoneId: z.string().min(1),
-        targetDate: z.string().datetime().nullable(),
-      })
-      .optional(),
+    
     addAction: z
       .object({
         title: z.string().trim().min(1).max(200),
@@ -251,24 +245,6 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
           ? new Date(data.addMilestone.targetDate)
           : null,
         order: (maxOrder._max.order ?? -1) + 1,
-      },
-    });
-  }
-
-  if (data.milestoneTargetDate) {
-    const mid = data.milestoneTargetDate.milestoneId;
-    const existing = await prisma.milestone.findFirst({
-      where: { id: mid, goalId },
-    });
-    if (!existing) {
-      return NextResponse.json({ error: "Milestone not found." }, { status: 404 });
-    }
-    await prisma.milestone.update({
-      where: { id: mid },
-      data: {
-        targetDate: data.milestoneTargetDate.targetDate
-          ? new Date(data.milestoneTargetDate.targetDate)
-          : null,
       },
     });
   }

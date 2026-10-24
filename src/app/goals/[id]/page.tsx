@@ -1,6 +1,6 @@
 "use client";
 
-import { RECURRENCE_OPTIONS, periodLabel } from "@/lib/action-period";
+import { periodLabel } from "@/lib/action-period";
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
@@ -106,7 +106,7 @@ export default function GoalDetailPage() {
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   const [milestoneTitle, setMilestoneTitle] = useState("");
-  const [milestoneTargetDate, setMilestoneTargetDate] = useState("");
+  const [milestoneEndDate, setMilestoneEndDate] = useState("");
   const [actionTitle, setActionTitle] = useState("");
   const [actionDue, setActionDue] = useState("");
   const [actionRecurrence, setActionRecurrence] = useState("ONCE");
@@ -237,26 +237,15 @@ export default function GoalDetailPage() {
     const ok = await patch({
       addMilestone: {
         title: milestoneTitle.trim(),
-        targetDate: milestoneTargetDate
-          ? new Date(milestoneTargetDate + "T12:00:00.000Z").toISOString()
+        targetDate: milestoneEndDate
+          ? new Date(milestoneEndDate + "T12:00:00.000Z").toISOString()
           : undefined,
       },
     });
     if (ok) {
       setMilestoneTitle("");
-      setMilestoneTargetDate("");
+      setMilestoneEndDate("");
     }
-  }
-
-  async function setMilestoneDue(milestoneId: string, dateStr: string) {
-    await patch({
-      milestoneTargetDate: {
-        milestoneId,
-        targetDate: dateStr
-          ? new Date(dateStr + "T12:00:00.000Z").toISOString()
-          : null,
-      },
-    });
   }
 
   async function addAction(event: FormEvent) {
@@ -654,42 +643,21 @@ export default function GoalDetailPage() {
                     {m.description && (
                       <p className="mt-0.5 text-xs text-secondary">{m.description}</p>
                     )}
-                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-secondary">
-                      {m.targetDate ? (
-                        <span
-                          className={
-                            !m.completed &&
-                            new Date(m.targetDate) < new Date()
-                              ? "font-medium text-amber-700"
-                              : ""
-                          }
-                        >
-                          Target: {formatDate(m.targetDate)}
-                          {!m.completed &&
-                          new Date(m.targetDate) < new Date()
-                            ? " · overdue"
-                            : ""}
-                        </span>
-                      ) : (
-                        <span className="text-muted">No target date</span>
-                      )}
-                      {goal.canEdit && (
-                        <label className="inline-flex items-center gap-1">
-                          <span className="sr-only">Set target date</span>
-                          <input
-                            type="date"
-                            disabled={saving}
-                            defaultValue={
-                              m.targetDate ? m.targetDate.slice(0, 10) : ""
-                            }
-                            onChange={(e) =>
-                              void setMilestoneDue(m.id, e.target.value)
-                            }
-                            className="rounded border border-[var(--border)] bg-background px-1.5 py-0.5 text-xs"
-                          />
-                        </label>
-                      )}
-                    </div>
+                    {m.targetDate && (
+                      <p
+                        className={
+                          "mt-0.5 text-xs " +
+                          (!m.completed && new Date(m.targetDate) < new Date()
+                            ? "font-medium text-amber-700"
+                            : "text-secondary")
+                        }
+                      >
+                        End by {formatDate(m.targetDate)}
+                        {!m.completed && new Date(m.targetDate) < new Date()
+                          ? " · overdue"
+                          : ""}
+                      </p>
+                    )}
                   </div>
                   {goal.canEdit && (
                     <button
@@ -722,11 +690,11 @@ export default function GoalDetailPage() {
                 />
               </label>
               <label className="text-xs font-medium text-secondary">
-                Target date
+                End date
                 <input
                   type="date"
-                  value={milestoneTargetDate}
-                  onChange={(e) => setMilestoneTargetDate(e.target.value)}
+                  value={milestoneEndDate}
+                  onChange={(e) => setMilestoneEndDate(e.target.value)}
                   className="mt-1 block rounded-lg border border-[var(--border)] bg-background px-3 py-2 text-sm text-[var(--text)]"
                 />
               </label>
