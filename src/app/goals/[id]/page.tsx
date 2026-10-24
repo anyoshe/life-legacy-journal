@@ -1,7 +1,5 @@
 "use client";
 
-import { periodLabel } from "@/lib/action-period";
-
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
@@ -684,6 +682,7 @@ export default function GoalDetailPage() {
                 Milestone
                 <input
                   value={milestoneTitle}
+                  maxLength={200}
                   onChange={(e) => setMilestoneTitle(e.target.value)}
                   placeholder="New milestone…"
                   className="mt-1 w-full rounded-lg border border-[var(--border)] bg-background px-3 py-2 text-sm text-[var(--text)]"
@@ -787,7 +786,7 @@ export default function GoalDetailPage() {
                       <p className="mt-0.5 text-xs text-secondary">
                         {(a.recurrence || "ONCE").replaceAll("_", " ").toLowerCase()}
                         {recurring
-                          ? ` · ${isDone ? "done" : "due"} ${periodLabel(a.recurrence || "DAILY")}`
+                          ? ` · ${isDone ? "done this period" : "due this period"}`
                           : ""}
                         {a.timeOfDay ? ` · ${a.timeOfDay}` : ""}
                         {a.dueDate ? ` · due ${formatDate(a.dueDate)}` : ""}
