@@ -1,5 +1,7 @@
 "use client";
 
+import { RECURRENCE_OPTIONS, periodLabel } from "@/lib/action-period";
+
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
@@ -108,6 +110,7 @@ export default function GoalDetailPage() {
   const [actionTitle, setActionTitle] = useState("");
   const [actionDue, setActionDue] = useState("");
   const [actionRecurrence, setActionRecurrence] = useState("ONCE");
+  const [actionFilter, setActionFilter] = useState<string>("ALL");
   const [actionTime, setActionTime] = useState("");
   const [actionContribution, setActionContribution] = useState("");
   const [currentValueInput, setCurrentValueInput] = useState("");
@@ -738,10 +741,35 @@ export default function GoalDetailPage() {
         {/* Actions */}
         <section className="rounded-2xl border border-[var(--border)] bg-surface p-6">
           <h2 className="mb-1 text-lg font-semibold text-[var(--text)]">Actions</h2>
-          <p className="mb-4 text-xs text-secondary">
-            Once, daily, or weekdays. Checking off feeds this goal&apos;s progress (numeric,
-            frequency, yes/no).
+          <p className="mb-3 text-xs text-secondary">
+            Track once, daily, weekly, monthly, quarterly, or yearly. Checking off applies to
+            the current period and feeds this goal&apos;s progress.
           </p>
+
+          <div className="mb-4 flex flex-wrap gap-1.5">
+            {[
+              { id: "ALL", label: "All" },
+              { id: "DAILY", label: "Daily" },
+              { id: "WEEKLY", label: "Weekly" },
+              { id: "MONTHLY", label: "Monthly" },
+              { id: "QUARTERLY", label: "Quarterly" },
+              { id: "YEARLY", label: "Yearly" },
+              { id: "ONCE", label: "Once" },
+            ].map((f) => (
+              <button
+                key={f.id}
+                type="button"
+                onClick={() => setActionFilter(f.id)}
+                className={
+                  actionFilter === f.id
+                    ? "rounded-full bg-[var(--primary)] px-2.5 py-1 text-[0.7rem] font-semibold text-white"
+                    : "rounded-full border border-[var(--border)] px-2.5 py-1 text-[0.7rem] text-[var(--text)]"
+                }
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
 
           {goal.actions.length === 0 ? (
             <p className="text-sm text-secondary">
@@ -749,7 +777,16 @@ export default function GoalDetailPage() {
             </p>
           ) : (
             <ul className="space-y-2">
-              {goal.actions.map((a) => {
+              {goal.actions
+                .filter((a) => {
+                  if (actionFilter === "ALL") return true;
+                  if (actionFilter === "DAILY")
+                    return ["DAILY", "WEEKDAYS", "CUSTOM_DAYS"].includes(
+                      a.recurrence || "ONCE",
+                    );
+                  return (a.recurrence || "ONCE") === actionFilter;
+                })
+                .map((a) => {
                 const recurring = a.recurrence && a.recurrence !== "ONCE";
                 const isDone = recurring ? !!a.doneToday : a.completed;
                 return (
@@ -778,6 +815,9 @@ export default function GoalDetailPage() {
                       </p>
                       <p className="mt-0.5 text-xs text-secondary">
                         {(a.recurrence || "ONCE").replaceAll("_", " ").toLowerCase()}
+                        {recurring
+                          ? ` · ${isDone ? "done" : "due"} ${periodLabel(a.recurrence || "DAILY")}`
+                          : ""}
                         {a.timeOfDay ? ` · ${a.timeOfDay}` : ""}
                         {a.dueDate ? ` · due ${formatDate(a.dueDate)}` : ""}
                         {a.contributionValue

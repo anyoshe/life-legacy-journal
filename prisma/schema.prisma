@@ -377,6 +377,9 @@ enum ActionRecurrence {
   DAILY
   WEEKDAYS
   WEEKLY
+  MONTHLY
+  QUARTERLY
+  YEARLY
   CUSTOM_DAYS
 }
 

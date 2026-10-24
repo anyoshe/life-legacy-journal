@@ -9,6 +9,11 @@ import { z } from "zod";
 import { getCurrentDbUser } from "@/lib/auth";
 import { applyActionContribution, refreshMilestoneProgress } from "@/lib/goal-progress";
 import { prisma } from "@/lib/prisma";
+import {
+  isPeriodRecurring,
+  logMatchesPeriod,
+  periodKeyDate,
+} from "@/lib/action-period";
 
 const updateSchema = z
   .object({
@@ -78,8 +83,8 @@ async function loadGoal(goalId: string, userId: string) {
         orderBy: [{ completed: "asc" }, { dueDate: "asc" }],
         include: {
           logs: {
-            where: { date: todayDateOnly() },
-            take: 1,
+            orderBy: { date: "desc" },
+            take: 60,
           },
         },
       },
@@ -96,8 +101,12 @@ export async function GET(_request: NextRequest, { params }: RouteContext) {
   if (!goal) return NextResponse.json({ error: "Goal not found." }, { status: 404 });
 
   const actions = goal.actions.map((action) => {
-    const isRecurring = action.recurrence !== "ONCE";
-    const doneToday = isRecurring ? (action.logs[0]?.completed ?? false) : action.completed;
+    const isRecurring = isPeriodRecurring(action.recurrence);
+    const doneToday = isRecurring
+      ? action.logs.some(
+          (l) => l.completed && logMatchesPeriod(l.date, action.recurrence),
+        )
+      : action.completed;
     return { ...action, doneToday, logs: undefined };
   });
 
@@ -174,10 +183,10 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
       return NextResponse.json({ error: "Action not found." }, { status: 404 });
     }
 
-    const isRecurring = action.recurrence !== "ONCE";
+    const isRecurring = isPeriodRecurring(action.recurrence);
 
     if (isRecurring) {
-      const date = todayDateOnly();
+      const date = periodKeyDate(action.recurrence);
       const completing = data.completed ?? true;
       if (completing) {
         await prisma.actionLog.upsert({
@@ -301,8 +310,12 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
   if (!updated) return NextResponse.json({ error: "Goal not found." }, { status: 404 });
 
   const actions = updated.actions.map((action) => {
-    const isRecurring = action.recurrence !== "ONCE";
-    const doneToday = isRecurring ? (action.logs[0]?.completed ?? false) : action.completed;
+    const isRecurring = isPeriodRecurring(action.recurrence);
+    const doneToday = isRecurring
+      ? action.logs.some(
+          (l) => l.completed && logMatchesPeriod(l.date, action.recurrence),
+        )
+      : action.completed;
     return { ...action, doneToday, logs: undefined };
   });
 
