@@ -40,7 +40,6 @@ export default function GoalsPage() {
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [filterArea, setFilterArea] = useState<string>("ALL");
-  const [expandedParents, setExpandedParents] = useState<Record<string, boolean>>({});
   const [title, setTitle] = useState("");
   const [area, setArea] = useState("PERSONAL");
   const [type, setType] = useState("YES_NO");
@@ -181,10 +180,6 @@ export default function GoalsPage() {
     if (filterArea === "ALL") return roots;
     return roots.filter((g) => g.area === filterArea);
   }, [goals, filterArea]);
-
-  function childrenOf(parentId: string) {
-    return goals.filter((g) => g.parentGoalId === parentId);
-  }
 
   const areasPresent = useMemo(() => {
     const s = new Set(goals.map((g) => g.area));
@@ -517,14 +512,13 @@ export default function GoalsPage() {
           </div>
         ) : (
           /* Dense responsive grid: 1 / 2 / 3 columns — all visible goals in one overview */
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
             {visible.map((goal) => {
               const mood = lifeAreaMood[goal.area] ?? lifeAreaMood.OTHER;
               const msDone = goal.milestones?.filter((m) => m.completed).length ?? 0;
               const msTotal = goal.milestones?.length ?? 0;
               const actOpen = goal.actions?.filter((a) => !a.completed).length ?? 0;
-              const kids = childrenOf(goal.id);
-              const open = !!expandedParents[goal.id];
+              const supportCount = goals.filter((g) => g.parentGoalId === goal.id).length;
               const pct =
                 msTotal > 0
                   ? Math.round((msDone / msTotal) * 100)
@@ -535,90 +529,54 @@ export default function GoalsPage() {
                       )
                     : null;
               return (
-                <div key={goal.id} className="flex flex-col gap-2">
-                  <Link
-                    href={`/goals/${goal.id}`}
-                    className="group relative flex min-h-[11rem] flex-col overflow-hidden rounded-2xl shadow-sm transition hover:shadow-md"
-                    style={{ background: mood.gradient }}
-                  >
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/25 to-transparent" />
-                    <div className="relative mt-auto flex flex-col p-4 text-white">
-                      <p className="text-[0.65rem] font-semibold uppercase tracking-wider text-white/80">
-                        {mood.label} · {goal.status.replaceAll("_", " ")}
-                      </p>
-                      <p className="mt-1 text-base font-semibold leading-snug">{goal.title}</p>
-                      {goal.why && (
-                        <p className="mt-1 line-clamp-2 text-xs text-white/85">{goal.why}</p>
+                <Link
+                  key={goal.id}
+                  href={`/goals/${goal.id}`}
+                  className="group relative flex min-h-[11rem] flex-col overflow-hidden rounded-2xl shadow-sm transition hover:shadow-md"
+                  style={{ background: mood.gradient }}
+                >
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/25 to-transparent" />
+                  <div className="relative mt-auto flex flex-col p-4 text-white">
+                    <p className="text-[0.65rem] font-semibold uppercase tracking-wider text-white/80">
+                      {mood.label} · {goal.status.replaceAll("_", " ")}
+                    </p>
+                    <p className="mt-1 text-base font-semibold leading-snug">{goal.title}</p>
+                    {goal.why && (
+                      <p className="mt-1 line-clamp-2 text-xs text-white/85">{goal.why}</p>
+                    )}
+                    <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[0.65rem] text-white/75">
+                      {supportCount > 0 && (
+                        <span>
+                          {supportCount} supporting · open goal to manage
+                        </span>
                       )}
-                      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[0.65rem] text-white/75">
-                        {kids.length > 0 && (
-                          <span>{kids.length} supporting goal{kids.length === 1 ? "" : "s"}</span>
-                        )}
-                        {pct != null && <span>{pct}%</span>}
-                        {msTotal > 0 && <span>{msDone}/{msTotal} milestones</span>}
-                        {actOpen > 0 && <span>{actOpen} open actions</span>}
-                        {goal.deadline && (
-                          <span>Due {new Date(goal.deadline).toLocaleDateString()}</span>
-                        )}
-                      </div>
-                      {pct != null && (
-                        <div
-                          className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/25"
-                          role="progressbar"
-                          aria-valuenow={pct}
-                          aria-valuemin={0}
-                          aria-valuemax={100}
-                        >
-                          <div
-                            className="h-full rounded-full bg-white/90"
-                            style={{ width: `${pct}%` }}
-                          />
-                        </div>
+                      {pct != null && <span>{pct}%</span>}
+                      {msTotal > 0 && (
+                        <span>
+                          {msDone}/{msTotal} milestones
+                        </span>
+                      )}
+                      {actOpen > 0 && <span>{actOpen} open actions</span>}
+                      {goal.deadline && (
+                        <span>Due {new Date(goal.deadline).toLocaleDateString()}</span>
                       )}
                     </div>
-                  </Link>
-                  {kids.length > 0 && (
-                    <div className="px-1">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setExpandedParents((prev) => ({
-                            ...prev,
-                            [goal.id]: !prev[goal.id],
-                          }))
-                        }
-                        className="text-xs font-medium text-primary hover:underline"
+                    {pct != null && (
+                      <div
+                        className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/25"
+                        role="progressbar"
+                        aria-valuenow={pct}
+                        aria-valuemin={0}
+                        aria-valuemax={100}
                       >
-                        {open
-                          ? "Hide supporting goals"
-                          : `Show ${kids.length} supporting goal${kids.length === 1 ? "" : "s"}`}
-                      </button>
-                      {open && (
-                        <ul className="mt-2 space-y-1.5 border-l-2 border-[var(--border)] pl-3">
-                          {kids.map((c) => (
-                            <li key={c.id}>
-                              <Link
-                                href={`/goals/${c.id}`}
-                                className="block rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text)] hover:border-primary/40"
-                              >
-                                <span className="font-medium">{c.title}</span>
-                                {c.targetValue != null && (
-                                  <span className="mt-0.5 block text-xs text-secondary">
-                                    {c.currentValue ?? 0}
-                                    {c.unit ? ` ${c.unit}` : ""}
-                                    {" / "}
-                                    {c.targetValue}
-                                    {c.unit ? ` ${c.unit}` : ""}
-                                  </span>
-                                )}
-                              </Link>
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-                  )}
-                </div>
+                        <div
+                          className="h-full rounded-full bg-white/90"
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                </Link>
               );
             })}
           </div>

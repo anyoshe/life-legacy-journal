@@ -55,7 +55,7 @@ export function GoalHierarchyPanel({
   const router = useRouter();
   const [showForm, setShowForm] = useState(false);
   const [title, setTitle] = useState("");
-  const [area, setArea] = useState("PERSONAL");
+  const [area, setArea] = useState(parent?.area ?? "PERSONAL");
   const [horizon, setHorizon] = useState("MONTHLY");
   const [type, setType] = useState("NUMERIC");
   const [saving, setSaving] = useState(false);
@@ -241,27 +241,70 @@ export function GoalHierarchyPanel({
         )}
 
         {supportingGoals.length === 0 ? (
-          <p className="text-sm text-secondary">No supporting goals yet.</p>
+          <p className="text-sm text-secondary">
+            No supporting goals yet. Add ones such as clearing debt, savings,
+            budgeting, or investing — each opens as its own goal for milestones
+            and actions.
+          </p>
         ) : (
           <ul className="space-y-2">
-            {supportingGoals.map((child) => (
-              <li key={child.id}>
-                <Link
-                  href={`/goals/${child.id}`}
-                  className="flex items-center justify-between rounded-xl border border-[var(--border)] bg-background px-3 py-2 text-sm hover:border-primary/30"
-                >
-                  <span>
-                    <span className="font-medium text-[var(--text)]">{child.title}</span>
-                    <span className="mt-0.5 block text-xs text-secondary">
-                      {[child.horizon?.replace("_", " "), child.status]
-                        .filter(Boolean)
-                        .join(" · ")}
-                    </span>
-                  </span>
-                  <ArrowRight size={14} className="text-primary" />
-                </Link>
-              </li>
-            ))}
+            {supportingGoals.map((child) => {
+              const hasNums =
+                child.targetValue != null && Number(child.targetValue) > 0;
+              const pct = hasNums
+                ? Math.min(
+                    100,
+                    Math.round(
+                      (Number(child.currentValue ?? 0) /
+                        Number(child.targetValue)) *
+                        100,
+                    ),
+                  )
+                : null;
+              return (
+                <li key={child.id}>
+                  <Link
+                    href={`/goals/${child.id}`}
+                    className="flex items-start justify-between gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-3 transition hover:border-primary/40 hover:bg-[var(--background)]"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <span className="font-medium text-[var(--text)]">
+                        {child.title}
+                      </span>
+                      <p className="mt-0.5 text-xs text-secondary">
+                        {[child.horizon?.replaceAll("_", " "), child.status]
+                          .filter(Boolean)
+                          .join(" · ") || "Sub-goal"}
+                        {" · Open to add milestones & actions"}
+                      </p>
+                      {hasNums && (
+                        <p className="mt-1 text-xs text-secondary">
+                          {child.currentValue ?? 0}
+                          {child.unit ? ` ${child.unit}` : ""}
+                          {" / "}
+                          {child.targetValue}
+                          {child.unit ? ` ${child.unit}` : ""}
+                          {pct != null ? ` · ${pct}%` : ""}
+                        </p>
+                      )}
+                      {pct != null && (
+                        <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-[var(--border)]">
+                          <div
+                            className="h-full rounded-full bg-[var(--primary)]"
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                    <ArrowRight
+                      size={16}
+                      className="mt-1 shrink-0 text-secondary"
+                      aria-hidden
+                    />
+                  </Link>
+                </li>
+              );
+            })}
           </ul>
         )}
       </div>
