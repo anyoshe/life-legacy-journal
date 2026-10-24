@@ -355,12 +355,15 @@ model Milestone {
   title       String
   description String?
   order       Int      @default(0)
+  /// Expected completion date for this milestone
+  targetDate  DateTime?
   completed   Boolean  @default(false)
   completedAt DateTime?
   evidenceUrl String?
 
   goal Goal @relation(fields: [goalId], references: [id], onDelete: Cascade)
 
+  @@index([goalId, targetDate])
   @@map("milestones")
 }
 
