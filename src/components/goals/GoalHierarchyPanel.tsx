@@ -41,6 +41,14 @@ const AREAS = [
   "OTHER",
 ];
 
+const TYPES = [
+  { value: "NUMERIC", label: "Numeric" },
+  { value: "YES_NO", label: "Yes / No" },
+  { value: "MILESTONE", label: "Milestone" },
+  { value: "FREQUENCY", label: "Frequency" },
+  { value: "QUALITATIVE", label: "Qualitative" },
+];
+
 export function GoalHierarchyPanel({
   goalId,
   parent,
@@ -55,9 +63,13 @@ export function GoalHierarchyPanel({
   const router = useRouter();
   const [showForm, setShowForm] = useState(false);
   const [title, setTitle] = useState("");
-  const [area, setArea] = useState(parent?.area ?? "PERSONAL");
+  const [why, setWhy] = useState("");
+  const [area, setArea] = useState(parent?.area ?? "FINANCIAL");
   const [horizon, setHorizon] = useState("MONTHLY");
   const [type, setType] = useState("NUMERIC");
+  const [targetValue, setTargetValue] = useState("");
+  const [unit, setUnit] = useState("KES");
+  const [deadline, setDeadline] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [horizonSaving, setHorizonSaving] = useState(false);
@@ -67,27 +79,50 @@ export function GoalHierarchyPanel({
     setSaving(true);
     setError(null);
     try {
+      const body: Record<string, unknown> = {
+        title: title.trim(),
+        area,
+        type,
+        parentGoalId: goalId,
+        horizon: horizon || null,
+        why: why.trim() || undefined,
+      };
+      if (targetValue.trim() !== "") {
+        const n = Number(targetValue);
+        if (!Number.isFinite(n) || n < 0) {
+          throw new Error("Target must be a number that is zero or greater.");
+        }
+        body.targetValue = n;
+        body.unit = unit.trim() || undefined;
+      }
+      if (deadline) {
+        body.deadline = new Date(deadline + "T12:00:00.000Z").toISOString();
+      }
+
       const res = await fetch("/api/goals", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title,
-          area,
-          type,
-          parentGoalId: goalId,
-          horizon: horizon || null,
-        }),
+        body: JSON.stringify(body),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Unable to create supporting goal.");
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || "Unable to create supporting goal.");
+      }
       setTitle("");
+      setWhy("");
+      setTargetValue("");
+      setDeadline("");
       setShowForm(false);
-      router.refresh();
-      if (typeof window !== "undefined") {
-        window.location.reload();
+      const newId = data.goal?.id as string | undefined;
+      if (newId) {
+        router.push(`/goals/${newId}`);
+      } else {
+        router.refresh();
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to create supporting goal.");
+      setError(
+        err instanceof Error ? err.message : "Unable to create supporting goal.",
+      );
     } finally {
       setSaving(false);
     }
@@ -102,12 +137,9 @@ export function GoalHierarchyPanel({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ horizon: value || null }),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || "Unable to update horizon.");
       router.refresh();
-      if (typeof window !== "undefined") {
-        window.location.reload();
-      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to update horizon.");
     } finally {
@@ -116,21 +148,46 @@ export function GoalHierarchyPanel({
   }
 
   return (
-    <section className="space-y-4 rounded-2xl border border-[var(--border)] bg-surface p-5">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h2 className="text-sm font-semibold text-[var(--text)]">Hierarchy</h2>
-          <p className="mt-1 text-xs text-secondary">
-            Supporting goals nest under this one. Prefer actions for daily tasks.
-          </p>
-        </div>
+    <section className="rounded-2xl border border-[var(--border)] bg-surface p-5 sm:p-6">
+      <h2 className="text-lg font-semibold text-[var(--text)]">Hierarchy</h2>
+      <p className="mt-1 text-xs text-secondary">
+        Supporting goals nest under this one. Open a supporting goal to add
+        milestones and actions — same as any other goal.
+      </p>
+
+      {parent && (
+        <p className="mt-3 text-sm text-secondary">
+          Parent:{" "}
+          <Link
+            href={`/goals/${parent.id}`}
+            className="font-medium text-primary hover:underline"
+          >
+            {parent.title}
+          </Link>
+        </p>
+      )}
+
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm font-medium text-[var(--text)]">
+          Supporting goals ({supportingGoals.length})
+        </p>
+        <button
+          type="button"
+          onClick={() => setShowForm((v) => !v)}
+          className="inline-flex items-center gap-1 text-xs font-medium text-primary"
+        >
+          <Plus size={14} /> Add supporting goal
+        </button>
+      </div>
+
+      <div className="mt-3">
         <label className="text-xs font-medium text-secondary">
           Time horizon
           <select
-            className="ml-2 rounded-lg border border-[var(--border)] bg-background px-2 py-1.5 text-sm text-[var(--text)]"
-            defaultValue={currentHorizon ?? ""}
+            value={currentHorizon ?? ""}
             disabled={horizonSaving}
             onChange={(e) => void saveHorizon(e.target.value)}
+            className="mt-1 block w-full rounded-lg border border-[var(--border)] bg-background px-3 py-2 text-sm"
           >
             {HORIZONS.map((h) => (
               <option key={h.value || "none"} value={h.value}>
@@ -141,110 +198,133 @@ export function GoalHierarchyPanel({
         </label>
       </div>
 
-      {parent && (
-        <div className="rounded-xl border border-[var(--border)] bg-background px-3 py-2 text-sm">
-          <p className="text-xs text-secondary">Parent goal</p>
-          <Link
-            href={`/goals/${parent.id}`}
-            className="mt-0.5 inline-flex items-center gap-1 font-medium text-primary"
-          >
-            {parent.title}
-            <ArrowRight size={14} />
-          </Link>
-        </div>
+      {error && (
+        <p className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {error}
+        </p>
       )}
 
-      <div>
-        <div className="mb-2 flex items-center justify-between">
-          <p className="text-xs font-semibold uppercase tracking-wide text-secondary">
-            Supporting goals ({supportingGoals.length})
-          </p>
-          <button
-            type="button"
-            onClick={() => setShowForm((v) => !v)}
-            className="inline-flex items-center gap-1 text-xs font-medium text-primary"
-          >
-            <Plus size={14} /> Add supporting goal
-          </button>
-        </div>
-
-        {error && (
-          <p className="mb-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-            {error}
-          </p>
-        )}
-
-        {showForm && (
-          <form
-            onSubmit={createSupporting}
-            className="mb-3 space-y-2 rounded-xl border border-[var(--border)] bg-background p-3"
-          >
+      {showForm && (
+        <form
+          onSubmit={createSupporting}
+          className="mt-4 grid gap-3 rounded-xl border border-[var(--border)] bg-background p-4 sm:grid-cols-2"
+        >
+          <label className="text-sm font-medium sm:col-span-2">
+            What do you want to accomplish? <span className="text-red-600">*</span>
             <input
               required
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="Supporting outcome"
-              className="w-full rounded-lg border border-[var(--border)] px-3 py-2 text-sm"
+              placeholder="e.g. Clear all debts, Build emergency savings…"
+              className="mt-1.5 w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm"
             />
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-              <select
-                value={area}
-                onChange={(e) => setArea(e.target.value)}
-                className="rounded-lg border border-[var(--border)] px-2 py-2 text-sm"
-              >
-                {AREAS.map((a) => (
-                  <option key={a} value={a}>
-                    {a}
-                  </option>
-                ))}
-              </select>
-              <select
-                value={horizon}
-                onChange={(e) => setHorizon(e.target.value)}
-                className="rounded-lg border border-[var(--border)] px-2 py-2 text-sm"
-              >
-                {HORIZONS.filter((h) => h.value).map((h) => (
-                  <option key={h.value} value={h.value}>
-                    {h.label}
-                  </option>
-                ))}
-              </select>
-              <select
-                value={type}
-                onChange={(e) => setType(e.target.value)}
-                className="rounded-lg border border-[var(--border)] px-2 py-2 text-sm"
-              >
-                <option value="NUMERIC">Numeric</option>
-                <option value="YES_NO">Yes / No</option>
-                <option value="MILESTONE">Milestone</option>
-                <option value="FREQUENCY">Frequency</option>
-                <option value="QUALITATIVE">Qualitative</option>
-              </select>
-            </div>
-            <div className="flex gap-2">
-              <button
-                type="submit"
-                disabled={saving}
-                className="rounded-lg bg-[var(--primary)] px-3 py-1.5 text-sm font-semibold text-white disabled:opacity-50"
-              >
-                {saving ? "Saving…" : "Create"}
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowForm(false)}
-                className="text-sm text-secondary"
-              >
-                Cancel
-              </button>
-            </div>
-          </form>
-        )}
+          </label>
+          <label className="text-sm font-medium sm:col-span-2">
+            Why does this matter?
+            <textarea
+              value={why}
+              onChange={(e) => setWhy(e.target.value)}
+              rows={2}
+              className="mt-1.5 w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm"
+              placeholder="Optional — your reason"
+            />
+          </label>
+          <label className="text-sm font-medium">
+            Life area
+            <select
+              value={area}
+              onChange={(e) => setArea(e.target.value)}
+              className="mt-1.5 w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm"
+            >
+              {AREAS.map((a) => (
+                <option key={a} value={a}>
+                  {a}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="text-sm font-medium">
+            Type
+            <select
+              value={type}
+              onChange={(e) => setType(e.target.value)}
+              className="mt-1.5 w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm"
+            >
+              {TYPES.map((t) => (
+                <option key={t.value} value={t.value}>
+                  {t.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="text-sm font-medium">
+            Horizon
+            <select
+              value={horizon}
+              onChange={(e) => setHorizon(e.target.value)}
+              className="mt-1.5 w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm"
+            >
+              {HORIZONS.map((h) => (
+                <option key={h.value || "none"} value={h.value}>
+                  {h.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="text-sm font-medium">
+            Deadline
+            <input
+              type="date"
+              value={deadline}
+              onChange={(e) => setDeadline(e.target.value)}
+              className="mt-1.5 w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm"
+            />
+          </label>
+          <label className="text-sm font-medium">
+            Target amount (optional)
+            <input
+              type="number"
+              min={0}
+              step="any"
+              value={targetValue}
+              onChange={(e) => setTargetValue(e.target.value)}
+              className="mt-1.5 w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm"
+              placeholder="e.g. 100000"
+            />
+          </label>
+          <label className="text-sm font-medium">
+            Unit
+            <input
+              value={unit}
+              onChange={(e) => setUnit(e.target.value)}
+              className="mt-1.5 w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm"
+              placeholder="KES"
+            />
+          </label>
+          <div className="flex flex-wrap gap-2 sm:col-span-2">
+            <button
+              type="submit"
+              disabled={saving || !title.trim()}
+              className="rounded-lg bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+            >
+              {saving ? "Saving…" : "Create supporting goal"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowForm(false)}
+              className="rounded-lg border border-[var(--border)] px-4 py-2 text-sm text-secondary"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      )}
 
+      <div className="mt-4">
         {supportingGoals.length === 0 ? (
           <p className="text-sm text-secondary">
-            No supporting goals yet. Add ones such as clearing debt, savings,
-            budgeting, or investing — each opens as its own goal for milestones
-            and actions.
+            No supporting goals yet. For Financial, open this page once to seed
+            “Clear all debts” and “Build savings”, or add your own above.
           </p>
         ) : (
           <ul className="space-y-2">
@@ -265,24 +345,19 @@ export function GoalHierarchyPanel({
                 <li key={child.id}>
                   <Link
                     href={`/goals/${child.id}`}
-                    className="flex items-start justify-between gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-3 transition hover:border-primary/40 hover:bg-[var(--background)]"
+                    className="flex items-start justify-between gap-3 rounded-xl border border-[var(--border)] bg-[var(--background)] px-3 py-3 transition hover:border-primary/40"
                   >
                     <div className="min-w-0 flex-1">
                       <span className="font-medium text-[var(--text)]">
                         {child.title}
                       </span>
                       <p className="mt-0.5 text-xs text-secondary">
-                        {[child.horizon?.replaceAll("_", " "), child.status]
-                          .filter(Boolean)
-                          .join(" · ") || "Sub-goal"}
-                        {" · Open to add milestones & actions"}
+                        Open full goal · milestones, actions, progress
                       </p>
                       {hasNums && (
                         <p className="mt-1 text-xs text-secondary">
                           {child.currentValue ?? 0}
-                          {child.unit ? ` ${child.unit}` : ""}
-                          {" / "}
-                          {child.targetValue}
+                          {child.unit ? ` ${child.unit}` : ""} / {child.targetValue}
                           {child.unit ? ` ${child.unit}` : ""}
                           {pct != null ? ` · ${pct}%` : ""}
                         </p>

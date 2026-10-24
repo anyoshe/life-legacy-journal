@@ -9,6 +9,7 @@ import { z } from "zod";
 import { getCurrentDbUser } from "@/lib/auth";
 import { applyActionContribution, refreshMilestoneProgress } from "@/lib/goal-progress";
 import { prisma } from "@/lib/prisma";
+import { ensureFinanceSubgoalsForRoot } from "@/lib/finance-umbrella";
 
 /** Flexible date: full ISO or YYYY-MM-DD */
 const dateInput = z
@@ -124,6 +125,29 @@ async function loadGoal(goalId: string, userId: string) {
           logs: { orderBy: { date: "desc" }, take: 60 },
         },
       },
+      parentGoal: {
+        select: {
+          id: true,
+          title: true,
+          horizon: true,
+          status: true,
+          area: true,
+        },
+      },
+      childGoals: {
+        where: { status: { notIn: ["ARCHIVED", "ABANDONED"] } },
+        orderBy: { createdAt: "asc" },
+        select: {
+          id: true,
+          title: true,
+          horizon: true,
+          status: true,
+          area: true,
+          currentValue: true,
+          targetValue: true,
+          unit: true,
+        },
+      },
     },
   });
 }
@@ -153,8 +177,25 @@ export async function GET(_request: NextRequest, { params }: RouteContext) {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { goalId } = await params;
-  const goal = await loadGoal(goalId, user.id);
+  let goal = await loadGoal(goalId, user.id);
   if (!goal) return NextResponse.json({ error: "Goal not found." }, { status: 404 });
+
+  // Financial root: ensure Clear all debts + Build savings appear under Supporting goals
+  if (
+    goal.area === "FINANCIAL" &&
+    !goal.parentGoalId &&
+    !(goal as { financePlanId?: string | null }).financePlanId
+  ) {
+    try {
+      await ensureFinanceSubgoalsForRoot(user.id, goal.id);
+      goal = await loadGoal(goalId, user.id);
+      if (!goal) {
+        return NextResponse.json({ error: "Goal not found." }, { status: 404 });
+      }
+    } catch (e) {
+      console.error("ensureFinanceSubgoalsForRoot", e);
+    }
+  }
 
   return NextResponse.json({
     goal: {

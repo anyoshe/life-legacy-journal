@@ -246,3 +246,82 @@ export async function rollupFinanceUmbrellas(userId: string): Promise<void> {
   await rollupDebtUmbrella(userId);
   await rollupSavingsUmbrella(userId);
 }
+
+
+/** Create standard finance supporting goals under a specific Financial root. */
+export async function ensureFinanceSubgoalsForRoot(
+  userId: string,
+  rootGoalId: string,
+): Promise<{ debt: Goal; savings: Goal }> {
+  const root = await prisma.goal.findFirst({
+    where: {
+      id: rootGoalId,
+      userId,
+      area: "FINANCIAL",
+      parentGoalId: null,
+      financePlan: null,
+    },
+  });
+  if (!root) {
+    throw new Error("Financial root goal not found.");
+  }
+
+  async function ensureChild(title: string, why: string, description: string) {
+    const existing = await prisma.goal.findFirst({
+      where: {
+        userId,
+        parentGoalId: rootGoalId,
+        title,
+        financePlan: null,
+        status: { notIn: ["ARCHIVED", "ABANDONED"] },
+      },
+    });
+    if (existing) return existing;
+
+    // Re-parent legacy top-level umbrella if present
+    const legacy = await prisma.goal.findFirst({
+      where: {
+        userId,
+        title,
+        financePlan: null,
+        parentGoalId: null,
+        status: { notIn: ["ARCHIVED", "ABANDONED"] },
+      },
+    });
+    if (legacy) {
+      return prisma.goal.update({
+        where: { id: legacy.id },
+        data: { parentGoalId: rootGoalId, area: "FINANCIAL" },
+      });
+    }
+
+    return prisma.goal.create({
+      data: {
+        userId,
+        parentGoalId: rootGoalId,
+        area: "FINANCIAL",
+        type: "NUMERIC",
+        title,
+        why,
+        description,
+        unit: "KES",
+        targetValue: 0,
+        currentValue: 0,
+        status: "ACTIVE",
+        visibility: "PRIVATE",
+      },
+    });
+  }
+
+  const debt = await ensureChild(
+    DEBT_SUBGOAL_TITLE,
+    "Cumulative progress clearing every creditor. Manage payments under Finance → Creditors.",
+    "Open this sub-goal to track milestones and actions for becoming debt-free.",
+  );
+  const savings = await ensureChild(
+    SAVINGS_SUBGOAL_TITLE,
+    "Cumulative savings across targets. Contribute under Finance.",
+    "Open this sub-goal to track milestones and actions for building savings.",
+  );
+  return { debt, savings };
+}
