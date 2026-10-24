@@ -85,8 +85,8 @@ const updateSchema = z.object({
   // Milestones: title + optional end date only
   addMilestone: z
     .object({
-      title: z.string().trim().min(1).max(200),
-      description: z.string().trim().max(2000).optional(),
+      title: z.string().trim().min(1).max(5000),
+      description: z.string().trim().max(5000).optional(),
       targetDate: dateInput,
     })
     .optional(),
@@ -109,7 +109,7 @@ const updateSchema = z.object({
   alignmentNote: z.string().trim().max(4000).nullable().optional(),
   horizon: z.nativeEnum(GoalHorizon).nullable().optional(),
   parentGoalId: z.string().min(1).nullable().optional(),
-}).strict();
+});
 
 type RouteContext = { params: Promise<{ goalId: string }> };
 

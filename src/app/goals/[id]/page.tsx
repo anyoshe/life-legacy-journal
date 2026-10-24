@@ -231,18 +231,40 @@ export default function GoalDetailPage() {
 
   async function addMilestone(event: FormEvent) {
     event.preventDefault();
-    if (!milestoneTitle.trim()) return;
+    const raw = milestoneTitle.trim();
+    if (!raw) {
+      setError("Milestone title is required.");
+      return;
+    }
+    if (raw.length > 5000) {
+      setError(
+        `Milestone title is too long (${raw.length} / 5000 characters). Shorten it and try again.`,
+      );
+      return;
+    }
+    if (milestoneEndDate) {
+      const end = new Date(milestoneEndDate + "T12:00:00.000Z");
+      if (Number.isNaN(end.getTime())) {
+        setError("End date is not valid. Use the date picker or YYYY-MM-DD.");
+        return;
+      }
+    }
     const ok = await patch({
       addMilestone: {
-        title: milestoneTitle.trim(),
-        targetDate: milestoneEndDate
-          ? new Date(milestoneEndDate + "T12:00:00.000Z").toISOString()
-          : undefined,
+        title: raw,
+        ...(milestoneEndDate
+          ? {
+              targetDate: new Date(
+                milestoneEndDate + "T12:00:00.000Z",
+              ).toISOString(),
+            }
+          : {}),
       },
     });
     if (ok) {
       setMilestoneTitle("");
       setMilestoneEndDate("");
+      setError(null);
     }
   }
 
@@ -674,22 +696,36 @@ export default function GoalDetailPage() {
           )}
 
           {goal.canEdit && (
-            <form
-              onSubmit={addMilestone}
-              className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end"
-            >
-              <label className="min-w-[12rem] flex-1 text-xs font-medium text-secondary">
-                Milestone
-                <input
+            <form onSubmit={addMilestone} className="mt-4 space-y-2">
+              <label className="block text-xs font-medium text-secondary">
+                Milestone title <span className="text-red-600">*</span>
+                <textarea
                   value={milestoneTitle}
-                  maxLength={200}
-                  onChange={(e) => setMilestoneTitle(e.target.value)}
-                  placeholder="New milestone…"
+                  onChange={(e) => {
+                    setMilestoneTitle(e.target.value);
+                    if (error) setError(null);
+                  }}
+                  placeholder="What must be true when this milestone is done?"
+                  rows={3}
+                  maxLength={5000}
+                  required
                   className="mt-1 w-full rounded-lg border border-[var(--border)] bg-background px-3 py-2 text-sm text-[var(--text)]"
                 />
+                <span className="mt-1 flex justify-between gap-2 text-[0.7rem] text-secondary">
+                  <span>Required. You can write a full sentence or short paragraph.</span>
+                  <span
+                    className={
+                      milestoneTitle.length > 4900
+                        ? "shrink-0 font-medium text-amber-700"
+                        : "shrink-0"
+                    }
+                  >
+                    {milestoneTitle.length} / 5000
+                  </span>
+                </span>
               </label>
-              <label className="text-xs font-medium text-secondary">
-                End date
+              <label className="block text-xs font-medium text-secondary">
+                End date <span className="font-normal">(optional)</span>
                 <input
                   type="date"
                   value={milestoneEndDate}
@@ -699,10 +735,14 @@ export default function GoalDetailPage() {
               </label>
               <button
                 type="submit"
-                disabled={saving || !milestoneTitle.trim()}
+                disabled={
+                  saving ||
+                  !milestoneTitle.trim() ||
+                  milestoneTitle.length > 5000
+                }
                 className="inline-flex items-center gap-1 rounded-lg bg-[var(--primary)] px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"
               >
-                <Plus size={16} /> Add
+                <Plus size={16} /> Add milestone
               </button>
             </form>
           )}
