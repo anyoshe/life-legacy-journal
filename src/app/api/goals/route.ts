@@ -12,6 +12,7 @@ import { getCurrentDbUser } from "@/lib/auth";
 import { getActiveCoupleForUser } from "@/lib/couple-access";
 import { validateParentLink } from "@/lib/goal-hierarchy";
 import { prisma } from "@/lib/prisma";
+import { boardGoalsWhere } from "@/lib/finance-umbrella";
 
 const goalSchema = z
   .object({
@@ -40,6 +41,7 @@ export async function GET(request: NextRequest) {
   const goals = await prisma.goal.findMany({
     where: {
       userId: user.id,
+      financePlan: null, // line-item debts/savings only on /finance
       status: { not: GoalStatus.ARCHIVED },
       ...(parentOnly ? { parentGoalId: null } : {}),
       ...(parentGoalId ? { parentGoalId } : {}),

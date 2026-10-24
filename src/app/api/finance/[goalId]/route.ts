@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getCurrentDbUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { rollupFinanceUmbrellas } from "@/lib/finance-umbrella";
 
 type Ctx = { params: Promise<{ goalId: string }> };
 
@@ -270,6 +271,7 @@ export async function POST(request: NextRequest, { params }: Ctx) {
       });
       return next;
     });
+    await rollupFinanceUmbrellas(user.id);
     return NextResponse.json({ plan: result, summary: recomputeDebt(result) }, { status: 201 });
   }
 
@@ -351,6 +353,7 @@ export async function POST(request: NextRequest, { params }: Ctx) {
               : undefined,
         },
       });
+      await rollupFinanceUmbrellas(user.id);
       return NextResponse.json({ plan: next, summary: recomputeSavings(next) }, { status: 201 });
     }
 
@@ -376,7 +379,8 @@ export async function POST(request: NextRequest, { params }: Ctx) {
       where: { id: goalId },
       data: { currentValue: savedAmount },
     });
-    return NextResponse.json({ plan: next, summary: recomputeSavings(next) }, { status: 201 });
+    await rollupFinanceUmbrellas(user.id);
+      return NextResponse.json({ plan: next, summary: recomputeSavings(next) }, { status: 201 });
   }
 
   return NextResponse.json({ error: "Unsupported transaction." }, { status: 400 });

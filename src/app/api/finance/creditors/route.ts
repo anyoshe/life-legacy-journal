@@ -3,6 +3,10 @@ import { z } from "zod";
 import { getCurrentDbUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { totalFromPrincipalAndRate } from "@/lib/debt-calc";
+import {
+  ensureUmbrellaDebtGoal,
+  rollupDebtUmbrella,
+} from "@/lib/finance-umbrella";
 
 export async function GET() {
   const user = await getCurrentDbUser();
@@ -45,6 +49,12 @@ export async function GET() {
   }));
 
   const totalDebt = creditors.reduce((s, c) => s + c.balance, 0);
+  // Keep umbrella board goal in sync for existing debts
+  try {
+    await rollupDebtUmbrella(user.id);
+  } catch (e) {
+    console.error("rollupDebtUmbrella", e);
+  }
   return NextResponse.json({ creditors, totalDebt });
 }
 
@@ -139,10 +149,12 @@ export async function POST(request: NextRequest) {
   const title = `Debt: ${data.creditorName}`;
 
   try {
+    const umbrella = await ensureUmbrellaDebtGoal(user.id);
     const result = await prisma.$transaction(async (tx) => {
       const goal = await tx.goal.create({
         data: {
           userId: user.id,
+          parentGoalId: umbrella.id,
           area: "FINANCIAL",
           type: "NUMERIC",
           title,
@@ -176,6 +188,8 @@ export async function POST(request: NextRequest) {
 
       return { goal, plan };
     });
+
+    await rollupDebtUmbrella(user.id);
 
     return NextResponse.json(
       {

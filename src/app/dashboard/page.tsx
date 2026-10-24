@@ -87,7 +87,13 @@ export default async function DashboardPage() {
     await Promise.all([
       prisma.entry.count({ where: { userId: user.id } }),
       prisma.goal.findMany({
-        where: { userId: user.id, status: { not: GoalStatus.ARCHIVED } },
+        // Hide finance line-items (individual creditors / savings pots).
+        // Those live under /finance. Board shows umbrellas like other goals.
+        where: {
+          userId: user.id,
+          status: { not: GoalStatus.ARCHIVED },
+          financePlan: null,
+        },
         orderBy: [{ deadline: "asc" }, { createdAt: "desc" }],
         include: {
           milestones: { select: { id: true, completed: true } },
