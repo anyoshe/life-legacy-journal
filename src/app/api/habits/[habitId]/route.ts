@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { calendarDateOnly } from "@/lib/dates";
 import {
   applyHabitContribution,
+  rollupParentFromChildren,
   unitsPerHabitCheckIn,
 } from "@/lib/habit-goal-contribution";
 
@@ -21,6 +22,50 @@ const patchSchema = z
     contributionRole: z.enum(["KEY", "SUPPORTING"]).optional(),
   })
   .strict();
+
+async function rollupParentGoal(
+  tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
+  goalId: string,
+  userId: string,
+) {
+  const goal = await tx.goal.findFirst({
+    where: { id: goalId, userId },
+    select: { parentGoalId: true },
+  });
+  if (!goal?.parentGoalId) return;
+
+  const siblings = await tx.goal.findMany({
+    where: {
+      parentGoalId: goal.parentGoalId,
+      userId,
+      status: { notIn: ["ARCHIVED", "ABANDONED"] },
+    },
+    select: { currentValue: true, targetValue: true },
+  });
+  const rolled = rollupParentFromChildren(siblings);
+  const parent = await tx.goal.findFirst({
+    where: { id: goal.parentGoalId, userId },
+  });
+  if (!parent) return;
+
+  const target = parent.targetValue ?? rolled.targetValue;
+  const current = rolled.currentValue;
+  const completed =
+    target != null && target > 0 ? current >= target - 1e-9 : false;
+
+  await tx.goal.update({
+    where: { id: parent.id },
+    data: {
+      currentValue: current,
+      lastReviewedAt: new Date(),
+      ...(completed
+        ? { status: "COMPLETED" as const }
+        : parent.status === "COMPLETED"
+          ? { status: "ACTIVE" as const }
+          : {}),
+    },
+  });
+}
 
 async function toggleHabitIdempotent(options: {
   habitId: string;
@@ -79,6 +124,19 @@ async function toggleHabitIdempotent(options: {
         where: { id: habit.goalId, userId },
       });
       if (goal) {
+        const linked = await tx.habit.findMany({
+          where: {
+            goalId: goal.id,
+            userId,
+            isActive: true,
+          },
+          select: { contributionRole: true },
+        });
+        const keyCount = linked.filter((h) => h.contributionRole === "KEY").length;
+        const supportingCount = linked.filter(
+          (h) => h.contributionRole !== "KEY",
+        ).length;
+
         const role =
           (habit as { contributionRole?: string }).contributionRole ??
           "SUPPORTING";
@@ -94,6 +152,8 @@ async function toggleHabitIdempotent(options: {
             frequencyTarget: goal.frequencyTarget,
             deadline: goal.deadline,
           },
+          new Date(),
+          { keyCount: Math.max(1, keyCount), supportingCount: Math.max(1, supportingCount) },
         );
         const applied = applyHabitContribution({
           currentValue: goal.currentValue,
@@ -113,6 +173,7 @@ async function toggleHabitIdempotent(options: {
                 : {}),
           },
         });
+        await rollupParentGoal(tx, goal.id, userId);
       }
     }
 

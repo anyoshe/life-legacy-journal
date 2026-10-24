@@ -9,7 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import { UserButton } from "@clerk/nextjs";
-import { Check, Flame, Leaf, Plus, Sparkles, Target } from "lucide-react";
+import { Check, Flame, Leaf, Pencil, Plus, Sparkles, Target, Trash2, X } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { MoodCanvas } from "@/components/ui/MoodCanvas";
 import { PageMoodHeader } from "@/components/ui/PageMoodHeader";
@@ -49,6 +49,13 @@ export default function HabitsPage() {
   const [contributionRole, setContributionRole] = useState<"KEY" | "SUPPORTING">(
     "SUPPORTING",
   );
+  const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editTarget, setEditTarget] = useState(5);
+  const [editGoalId, setEditGoalId] = useState("");
+  const [editRole, setEditRole] = useState<"KEY" | "SUPPORTING">("SUPPORTING");
+  const [editSaving, setEditSaving] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -61,15 +68,16 @@ export default function HabitsPage() {
       setHabits(data.habits ?? []);
       if (gRes.ok) {
         const gData = await gRes.json();
-        const list = (gData.goals ?? gData ?? []) as GoalOption[];
+        const raw = gData.goals ?? gData.data ?? gData;
+        const list = Array.isArray(raw) ? raw : [];
         setGoals(
-          Array.isArray(list)
-            ? list.map((g: GoalOption) => ({
-                id: g.id,
-                title: g.title,
-                area: g.area,
-              }))
-            : [],
+          list
+            .filter((g: { id?: string; title?: string }) => g?.id && g?.title)
+            .map((g: { id: string; title: string; area?: string }) => ({
+              id: g.id,
+              title: g.title,
+              area: g.area ?? "",
+            })),
         );
       }
     } catch (e) {
@@ -158,6 +166,68 @@ export default function HabitsPage() {
     0,
     ...active.map((h) => h.currentStreak ?? h.streak ?? 0),
   );
+
+
+  function openEdit(h: Habit) {
+    setEditingHabit(h);
+    setEditTitle(h.title);
+    setEditDescription(h.description ?? "");
+    setEditTarget(h.targetPerWeek || 5);
+    setEditGoalId(h.goalId ?? "");
+    setEditRole(
+      h.contributionRole === "KEY" ? "KEY" : "SUPPORTING",
+    );
+  }
+
+  async function saveEdit(e: FormEvent) {
+    e.preventDefault();
+    if (!editingHabit) return;
+    setEditSaving(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/habits/${editingHabit.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: editTitle.trim(),
+          description: editDescription.trim() || null,
+          targetPerWeek: editTarget,
+          goalId: editGoalId || null,
+          contributionRole: editRole,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Could not update habit.");
+      setEditingHabit(null);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not update habit.");
+    } finally {
+      setEditSaving(false);
+    }
+  }
+
+  async function deleteHabit(h: Habit) {
+    if (
+      !confirm(
+        `Remove “${h.title}”? Past check-ins for this habit will be deleted. Goal totals are not automatically rebuilt.`,
+      )
+    ) {
+      return;
+    }
+    setError(null);
+    try {
+      const res = await fetch(`/api/habits/${h.id}`, { method: "DELETE" });
+      if (!res.ok && res.status !== 204) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Could not delete habit.");
+      }
+      setEditingHabit(null);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not delete habit.");
+    }
+  }
 
   return (
     <AppShell rightSlot={<UserButton />}>
@@ -280,6 +350,16 @@ export default function HabitsPage() {
                   ))}
                 </select>
               </label>
+              {goals.length === 0 ? (
+                <p className="text-xs text-amber-800">
+                  No goals available yet. Add one under <strong>Goals</strong>, then return
+                  here to link this habit as Key or Supporting.
+                </p>
+              ) : (
+                <p className="text-xs text-secondary">
+                  {goals.length} goal{goals.length === 1 ? "" : "s"} available to link.
+                </p>
+              )}
               {goalId ? (
                 <div className="text-sm">
                   <p className="font-medium text-[var(--text)]">Contribution to that goal</p>
@@ -360,6 +440,8 @@ export default function HabitsPage() {
                 habits={active}
                 togglingId={togglingId}
                 onToggle={toggleComplete}
+                onEdit={openEdit}
+                onDelete={deleteHabit}
               />
             </div>
           ) : (
@@ -373,6 +455,8 @@ export default function HabitsPage() {
               }
               togglingId={togglingId}
               onToggle={toggleComplete}
+              onEdit={openEdit}
+              onDelete={deleteHabit}
             />
           )}
 
@@ -382,6 +466,126 @@ export default function HabitsPage() {
             <span className="font-medium text-[var(--text)]">Reviews</span> for
             deeper weekly reflection.
           </p>
+
+          {editingHabit && (
+            <div
+              className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="edit-habit-title"
+              onClick={(e) => {
+                if (e.target === e.currentTarget) setEditingHabit(null);
+              }}
+            >
+              <form
+                onSubmit={saveEdit}
+                className="max-h-[90vh] w-full max-w-md space-y-3 overflow-y-auto rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-xl"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <p id="edit-habit-title" className="text-sm font-semibold text-[var(--text)]">
+                    Edit habit
+                  </p>
+                  <button
+                    type="button"
+                    aria-label="Close"
+                    className="rounded-full p-1 text-secondary hover:bg-[var(--border)]"
+                    onClick={() => setEditingHabit(null)}
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+                <label className="block text-sm font-medium">
+                  Name
+                  <input
+                    required
+                    value={editTitle}
+                    onChange={(e) => setEditTitle(e.target.value)}
+                    className="input-field mt-1 w-full"
+                  />
+                </label>
+                <label className="block text-sm font-medium">
+                  Why it matters
+                  <textarea
+                    value={editDescription}
+                    onChange={(e) => setEditDescription(e.target.value)}
+                    rows={2}
+                    className="input-field mt-1 w-full"
+                  />
+                </label>
+                <label className="block text-sm font-medium">
+                  Days per week
+                  <input
+                    type="number"
+                    min={1}
+                    max={14}
+                    value={editTarget}
+                    onChange={(e) => setEditTarget(Number(e.target.value))}
+                    className="input-field mt-1 w-28"
+                  />
+                </label>
+                <label className="block text-sm font-medium">
+                  Linked goal
+                  <select
+                    value={editGoalId}
+                    onChange={(e) => setEditGoalId(e.target.value)}
+                    className="input-field mt-1 w-full"
+                  >
+                    <option value="">No goal — practice only</option>
+                    {goals.map((g) => (
+                      <option key={g.id} value={g.id}>
+                        {g.title}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                {editGoalId ? (
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setEditRole("KEY")}
+                      className={
+                        editRole === "KEY"
+                          ? "rounded-full bg-[var(--primary)] px-3 py-1.5 text-xs font-semibold text-white"
+                          : "rounded-full border border-[var(--border)] px-3 py-1.5 text-xs"
+                      }
+                    >
+                      Key driver
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditRole("SUPPORTING")}
+                      className={
+                        editRole === "SUPPORTING"
+                          ? "rounded-full bg-[var(--primary)] px-3 py-1.5 text-xs font-semibold text-white"
+                          : "rounded-full border border-[var(--border)] px-3 py-1.5 text-xs"
+                      }
+                    >
+                      Supporting
+                    </button>
+                  </div>
+                ) : null}
+                {goals.length === 0 && (
+                  <p className="text-xs text-amber-800">
+                    No goals loaded. Create a goal under Goals first, then link it here.
+                  </p>
+                )}
+                <div className="flex flex-wrap gap-2 pt-1">
+                  <button type="submit" disabled={editSaving} className="btn-primary">
+                    {editSaving ? "Saving…" : "Save changes"}
+                  </button>
+                  <button
+                    type="button"
+                    className="rounded-full border border-red-200 px-4 py-2 text-sm text-red-700"
+                    onClick={() => editingHabit && void deleteHabit(editingHabit)}
+                  >
+                    Delete habit
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
+
         </main>
       </MoodCanvas>
     </AppShell>
@@ -443,10 +647,14 @@ function HabitGrid({
   habits,
   togglingId,
   onToggle,
+  onEdit,
+  onDelete,
 }: {
   habits: Habit[];
   togglingId: string | null;
   onToggle: (h: Habit) => void;
+  onEdit: (h: Habit) => void;
+  onDelete: (h: Habit) => void;
 }) {
   if (habits.length === 0) {
     return (
@@ -530,6 +738,24 @@ function HabitGrid({
                     Done today
                   </span>
                 )}
+              </div>
+              <div className="mt-3 flex gap-2 border-t border-[var(--border)]/60 pt-3">
+                <button
+                  type="button"
+                  onClick={() => onEdit(h)}
+                  className="inline-flex items-center gap-1 rounded-full border border-[var(--border)] px-3 py-1 text-xs font-medium text-[var(--text)] hover:border-[var(--primary)]/40"
+                >
+                  <Pencil className="h-3 w-3" aria-hidden />
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onDelete(h)}
+                  className="inline-flex items-center gap-1 rounded-full border border-red-200 px-3 py-1 text-xs font-medium text-red-700 hover:bg-red-50"
+                >
+                  <Trash2 className="h-3 w-3" aria-hidden />
+                  Delete
+                </button>
               </div>
             </article>
           </li>
