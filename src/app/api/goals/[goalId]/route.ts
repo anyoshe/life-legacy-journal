@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ActionRecurrence, GoalStatus } from "@prisma/client";
+import {
+  ActionRecurrence,
+  GoalAlignment,
+  GoalHorizon,
+  GoalStatus,
+} from "@prisma/client";
 import { z } from "zod";
 import { getCurrentDbUser } from "@/lib/auth";
 import { applyActionContribution, refreshMilestoneProgress } from "@/lib/goal-progress";
@@ -50,6 +55,10 @@ const updateSchema = z
       .optional(),
     deleteMilestoneId: z.string().min(1).optional(),
     deleteActionId: z.string().min(1).optional(),
+    alignment: z.nativeEnum(GoalAlignment).optional(),
+    alignmentNote: z.string().trim().max(4000).nullable().optional(),
+    horizon: z.nativeEnum(GoalHorizon).nullable().optional(),
+    parentGoalId: z.string().min(1).nullable().optional(),
   })
   .strict();
 
@@ -109,7 +118,13 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
 
   const parsed = updateSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ error: "Invalid goal update." }, { status: 400 });
+    return NextResponse.json(
+      {
+        error: "Invalid goal update.",
+        details: parsed.error.flatten(),
+      },
+      { status: 400 },
+    );
   }
 
   const goal = await prisma.goal.findFirst({ where: { id: goalId, userId: user.id } });
@@ -267,6 +282,10 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
   if (data.deadline !== undefined) {
     goalUpdate.deadline = data.deadline ? new Date(data.deadline) : null;
   }
+  if (data.alignment !== undefined) goalUpdate.alignment = data.alignment;
+  if (data.alignmentNote !== undefined) goalUpdate.alignmentNote = data.alignmentNote;
+  if (data.horizon !== undefined) goalUpdate.horizon = data.horizon;
+  if (data.parentGoalId !== undefined) goalUpdate.parentGoalId = data.parentGoalId;
 
   if (Object.keys(goalUpdate).length > 0) {
     goalUpdate.lastReviewedAt = new Date();
