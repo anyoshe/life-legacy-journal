@@ -264,14 +264,36 @@ export default function GoalDetailPage() {
 
   async function addAction(event: FormEvent) {
     event.preventDefault();
-    if (!actionTitle.trim()) return;
+    const title = actionTitle.trim();
+    if (!title) {
+      setError("Action title is required.");
+      return;
+    }
+    let contribution: number | null = null;
+    if (actionContribution.trim() !== "") {
+      const n = Number(actionContribution);
+      if (!Number.isFinite(n) || n < 0) {
+        setError("Progress amount must be a number that is zero or greater.");
+        return;
+      }
+      contribution = n;
+    }
+    if (actionDue) {
+      const d = new Date(actionDue);
+      if (Number.isNaN(d.getTime())) {
+        setError("Due date is not valid.");
+        return;
+      }
+    }
     const ok = await patch({
       addAction: {
-        title: actionTitle.trim(),
-        dueDate: actionDue ? new Date(actionDue).toISOString() : undefined,
+        title,
+        ...(actionDue
+          ? { dueDate: new Date(actionDue + "T12:00:00.000Z").toISOString() }
+          : {}),
         recurrence: actionRecurrence,
         timeOfDay: actionTime || null,
-        contributionValue: actionContribution ? Number(actionContribution) : null,
+        contributionValue: contribution,
       },
     });
     if (ok) {
@@ -280,6 +302,7 @@ export default function GoalDetailPage() {
       setActionRecurrence("ONCE");
       setActionTime("");
       setActionContribution("");
+      setError(null);
     }
   }
 
@@ -835,12 +858,23 @@ export default function GoalDetailPage() {
 
           {goal.canEdit && (
             <form onSubmit={addAction} className="mt-4 space-y-2">
-              <input
-                value={actionTitle}
-                onChange={(e) => setActionTitle(e.target.value)}
-                placeholder="Next action…"
-                className="w-full rounded-lg border border-[var(--border)] bg-background px-3 py-2 text-sm"
-              />
+              <label className="block text-xs font-medium text-secondary">
+                Action title <span className="text-red-600">*</span>
+                <textarea
+                  value={actionTitle}
+                  onChange={(e) => {
+                    setActionTitle(e.target.value);
+                    if (error) setError(null);
+                  }}
+                  placeholder="Next action…"
+                  rows={2}
+                  required
+                  className="mt-1 w-full rounded-lg border border-[var(--border)] bg-background px-3 py-2 text-sm text-[var(--text)]"
+                />
+                <span className="mt-1 text-[0.7rem] text-secondary">
+                  Required. No character limit.
+                </span>
+              </label>
               <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
                 <label className="text-xs text-secondary">
                   Schedule

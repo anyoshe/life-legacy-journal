@@ -94,9 +94,9 @@ const updateSchema = z.object({
   // Actions
   addAction: z
     .object({
-      title: z.string().trim().min(1).max(200),
+      title: z.string().trim().min(1), // no character limit
       dueDate: dateInput,
-      notes: z.string().trim().max(2000).optional(),
+      notes: z.string().trim().optional(),
       recurrence: z.enum(RECURRENCE_VALUES).optional(),
       daysOfWeek: z.array(z.number().int().min(0).max(6)).max(7).optional(),
       timeOfDay: z.string().optional().nullable(),
