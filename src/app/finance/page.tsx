@@ -11,12 +11,19 @@ import {
   unpaidPeriodLabel,
 } from "@/lib/debt-calc";
 import { MoodCanvas } from "@/components/ui/MoodCanvas";
+import {
+  SavingsPanel,
+  BudgetsPanel,
+  ExpenseCategoryPicker,
+} from "@/components/finance/SavingsBudgetTabs";
 
-type Tab = "overview" | "creditors" | "accounts" | "expenses" | "assets";
+type Tab = "overview" | "creditors" | "savings" | "budgets" | "accounts" | "expenses" | "assets";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "overview", label: "Overview" },
   { id: "creditors", label: "Creditors" },
+  { id: "savings", label: "Savings" },
+  { id: "budgets", label: "Budgets" },
   { id: "accounts", label: "Money I have" },
   { id: "expenses", label: "Expenses" },
   { id: "assets", label: "Assets" },
@@ -141,7 +148,7 @@ export default function FinanceHubPage() {
   useEffect(() => {
     try {
       const q = new URLSearchParams(window.location.search).get("tab") as Tab | null;
-      if (q && ["overview", "creditors", "accounts", "expenses", "assets"].includes(q)) {
+      if (q && ["overview", "creditors", "savings", "budgets", "accounts", "expenses", "assets"].includes(q)) {
         setTab(q);
       }
     } catch {
@@ -412,7 +419,7 @@ export default function FinanceHubPage() {
             </p>
             <h1 className="text-2xl font-semibold text-[var(--text)]">Finance hub</h1>
             <p className="text-sm text-secondary">
-              Overview, creditors with Pay, money you hold, expenses, and assets —
+              Overview, creditors, savings goals, budgets, money you hold, expenses, and assets —
               linked so payments cannot ignore available balances.
             </p>
             <Link href="/goals?filter=FINANCIAL" className="text-sm font-medium text-primary">
@@ -887,6 +894,10 @@ export default function FinanceHubPage() {
             </div>
           )}
 
+          {tab === "savings" && <SavingsPanel />}
+
+          {tab === "budgets" && <BudgetsPanel />}
+
           {tab === "accounts" && (
             <div className="space-y-4">
               <form onSubmit={addAccount} className="card grid gap-2 p-4 sm:grid-cols-4">
@@ -962,12 +973,12 @@ export default function FinanceHubPage() {
                     </option>
                   ))}
                 </select>
-                <input
-                  placeholder="Category"
-                  value={expCategory}
-                  onChange={(e) => setExpCategory(e.target.value)}
-                  className="input-field"
-                />
+                <div className="sm:col-span-2">
+                  <ExpenseCategoryPicker
+                    value={expCategory}
+                    onChange={setExpCategory}
+                  />
+                </div>
                 <input
                   placeholder="Description"
                   value={expDesc}

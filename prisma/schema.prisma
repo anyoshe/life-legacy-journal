@@ -71,6 +71,8 @@ model User {
   notifications Notification[]
   moneyAccounts MoneyAccount[]
   personalAssets PersonalAsset[]
+  budgets Budget[]
+  expenseCategories ExpenseCategory[]
   moneyExpenses MoneyExpense[]
   memories Memory[]
   subscriptionTier String @default("FREE")
@@ -692,6 +694,8 @@ model FinancePlan {
   targetAmount        Float?
   savedAmount         Float     @default(0)
   savingsDestination  String?   // bank, SACCO, M-Pesa, jar, etc.
+  savingsPurpose      String?   // EMERGENCY, SCHOOL_FEES, CUSTOM, …
+  savingsPurposeLabel String?   // display label
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -777,6 +781,46 @@ model MoneyExpense {
 
   @@index([userId, occurredAt])
   @@map("money_expenses")
+}
+
+
+enum BudgetPeriod {
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
+model Budget {
+  id          String       @id @default(cuid())
+  userId      String
+  period      BudgetPeriod @default(MONTHLY)
+  periodStart DateTime
+  amount      Float
+  currency    String       @default("KES")
+  category    String?
+  notes       String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, periodStart])
+  @@index([userId, period])
+  @@map("budgets")
+}
+
+model ExpenseCategory {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  scope     String   @default("BOTH") // INDIVIDUAL | FAMILY | BOTH
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, name])
+  @@index([userId])
+  @@map("expense_categories")
 }
 
 enum MemoryKind {
