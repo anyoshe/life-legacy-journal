@@ -14,14 +14,16 @@ import { MoodCanvas } from "@/components/ui/MoodCanvas";
 import {
   SavingsPanel,
   BudgetsPanel,
+  DebtorsPanel,
   ExpenseCategoryPicker,
 } from "@/components/finance/SavingsBudgetTabs";
 
-type Tab = "overview" | "creditors" | "savings" | "budgets" | "accounts" | "expenses" | "assets";
+type Tab = "overview" | "creditors" | "debtors" | "savings" | "budgets" | "accounts" | "expenses" | "assets";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "overview", label: "Overview" },
   { id: "creditors", label: "Creditors" },
+  { id: "debtors", label: "Debtors" },
   { id: "savings", label: "Savings" },
   { id: "budgets", label: "Budgets" },
   { id: "accounts", label: "Money I have" },
@@ -46,8 +48,11 @@ export default function FinanceHubPage() {
   const [error, setError] = useState<string | null>(null);
   const [overview, setOverview] = useState<{
     moneyAvailable: number;
+    totalReceivable?: number;
+    debtorsCount?: number;
     assetsTotal: number;
     totalDebt: number;
+    liquidPosition?: number;
     netWorthApprox: number;
     expensesThisMonth: number;
   } | null>(null);
@@ -113,6 +118,18 @@ export default function FinanceHubPage() {
   const [credBorrowed, setCredBorrowed] = useState("");
   const [credDeadline, setCredDeadline] = useState("");
   const [showAddCreditor, setShowAddCreditor] = useState(false);
+  const [showAddAccount, setShowAddAccount] = useState(false);
+  const [topUpAccountId, setTopUpAccountId] = useState<string | null>(null);
+  const [topUpAmount, setTopUpAmount] = useState("");
+  const [topUpSource, setTopUpSource] = useState("");
+  const [topUpPurpose, setTopUpPurpose] = useState("");
+  const [topUpDate, setTopUpDate] = useState("");
+  const [editAccountId, setEditAccountId] = useState<string | null>(null);
+  const [editAccName, setEditAccName] = useState("");
+  const [editAccKind, setEditAccKind] = useState("CASH");
+  const [editAccNotes, setEditAccNotes] = useState("");
+  const [showAddExpense, setShowAddExpense] = useState(false);
+  const [showAddAsset, setShowAddAsset] = useState(false);
   const [interestPeriod, setInterestPeriod] = useState<"MONTHLY" | "YEARLY">("YEARLY");
   const [autoCalcTotal, setAutoCalcTotal] = useState(true);
   const [borrowReason, setBorrowReason] = useState("");
@@ -148,7 +165,7 @@ export default function FinanceHubPage() {
   useEffect(() => {
     try {
       const q = new URLSearchParams(window.location.search).get("tab") as Tab | null;
-      if (q && ["overview", "creditors", "savings", "budgets", "accounts", "expenses", "assets"].includes(q)) {
+      if (q && ["overview", "creditors", "debtors", "savings", "budgets", "accounts", "expenses", "assets"].includes(q)) {
         setTab(q);
       }
     } catch {
@@ -215,7 +232,84 @@ export default function FinanceHubPage() {
     }
   }
 
+
+  async function submitTopUp(e: FormEvent) {
+    e.preventDefault();
+    if (!topUpAccountId) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/finance/accounts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "topup",
+          accountId: topUpAccountId,
+          amount: Number(topUpAmount),
+          source: topUpSource.trim() || null,
+          purpose: topUpPurpose.trim() || null,
+          occurredAt: topUpDate || null,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Top-up failed.");
+      setTopUpAccountId(null);
+      setTopUpAmount("");
+      setTopUpSource("");
+      setTopUpPurpose("");
+      setTopUpDate("");
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Top-up failed.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function saveEditAccount(e: FormEvent) {
+    e.preventDefault();
+    if (!editAccountId) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/finance/accounts/${editAccountId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: editAccName.trim(),
+          kind: editAccKind,
+          notes: editAccNotes.trim() || null,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Could not update account.");
+      setEditAccountId(null);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not update account.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function deleteAccount(id: string, name: string) {
+    if (!confirm(`Delete account "${name}"? This cannot be undone.`)) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/finance/accounts/${id}`, { method: "DELETE" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Could not delete account.");
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not delete account.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function addExpense(e: FormEvent) {
+
     e.preventDefault();
     setBusy(true);
     setError(null);
@@ -418,16 +512,16 @@ export default function FinanceHubPage() {
               Financial control
             </p>
             <h1 className="text-2xl font-semibold text-[var(--text)]">Finance hub</h1>
-            <p className="text-sm text-secondary">
-              Overview, creditors, savings goals, budgets, money you hold, expenses, and assets —
-              linked so payments cannot ignore available balances.
+            <p className="text-sm text-secondary max-w-2xl">
+              Totals, surplus or deficit, and clear tables for every section — so you can read
+              your position at a glance and act with confidence.
             </p>
             <Link href="/goals?filter=FINANCIAL" className="text-sm font-medium text-primary">
               ← Financial goals
             </Link>
           </header>
 
-          <nav className="flex flex-wrap gap-2 border-b border-[var(--border)] pb-3">
+          <nav className="-mx-1 flex gap-2 overflow-x-auto border-b border-[var(--border)] px-1 pb-3 scrollbar-thin">
             {TABS.map((t) => (
               <button
                 key={t.id}
@@ -444,8 +538,8 @@ export default function FinanceHubPage() {
                 }}
                 className={
                   tab === t.id
-                    ? "rounded-full bg-primary px-3 py-1.5 text-sm font-semibold text-white"
-                    : "rounded-full border border-[var(--border)] bg-white px-3 py-1.5 text-sm text-[var(--text)]"
+                    ? "shrink-0 rounded-full bg-primary px-3 py-2 text-sm font-semibold text-white"
+                    : "shrink-0 rounded-full border border-[var(--border)] bg-white px-3 py-2 text-sm text-[var(--text)]"
                 }
               >
                 {t.label}
@@ -460,33 +554,197 @@ export default function FinanceHubPage() {
           )}
 
           {tab === "overview" && overview && (
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <div className="card p-4">
-                <p className="text-xs uppercase text-secondary">Money I have</p>
-                <p className="mt-1 text-xl font-semibold text-primary">
-                  {money(overview.moneyAvailable)}
-                </p>
-              </div>
-              <div className="card p-4">
-                <p className="text-xs uppercase text-secondary">Total debt</p>
-                <p className="mt-1 text-xl font-semibold text-[var(--text)]">
-                  {money(overview.totalDebt)}
-                </p>
-              </div>
-              <div className="card p-4">
-                <p className="text-xs uppercase text-secondary">Assets</p>
-                <p className="mt-1 text-xl font-semibold">{money(overview.assetsTotal)}</p>
-              </div>
-              <div className="card p-4">
-                <p className="text-xs uppercase text-secondary">Expenses this month</p>
-                <p className="mt-1 text-xl font-semibold">{money(overview.expensesThisMonth)}</p>
-              </div>
-              <div className="card p-4 sm:col-span-2">
-                <p className="text-xs uppercase text-secondary">Approx. net (cash + assets − debt)</p>
-                <p className="mt-1 text-2xl font-semibold text-[var(--text)]">
-                  {money(overview.netWorthApprox)}
-                </p>
-              </div>
+            <div className="space-y-6">
+              {(() => {
+                const cash = overview.moneyAvailable;
+                const receivable = overview.totalReceivable ?? 0;
+                const debt = overview.totalDebt;
+                const myMoney = cash + receivable;
+                const liquid =
+                  overview.liquidPosition ?? cash + receivable - debt;
+                const exp = overview.expensesThisMonth;
+                const assets = overview.assetsTotal;
+                const net = overview.netWorthApprox;
+                const debtorsN = overview.debtorsCount ?? 0;
+                return (
+                  <>
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                      <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-sm">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-secondary">
+                          Cash available
+                        </p>
+                        <p className="mt-2 text-2xl font-semibold text-[var(--text)]">
+                          {money(cash)}
+                        </p>
+                        <p className="mt-1 text-xs text-secondary">Accounts</p>
+                      </div>
+                      <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-5 shadow-sm">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-secondary">
+                          Owed to me (debtors)
+                        </p>
+                        <p className="mt-2 text-2xl font-semibold text-emerald-800">
+                          {money(receivable)}
+                        </p>
+                        <p className="mt-1 text-xs text-secondary">
+                          {debtorsN === 0
+                            ? "No open debtors"
+                            : `${debtorsN} debtor${debtorsN === 1 ? "" : "s"}`}
+                        </p>
+                      </div>
+                      <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-sm">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-secondary">
+                          Total debt (creditors)
+                        </p>
+                        <p className="mt-2 text-2xl font-semibold text-red-700">
+                          {money(debt)}
+                        </p>
+                        <p className="mt-1 text-xs text-secondary">What I owe</p>
+                      </div>
+                      <div
+                        className={
+                          "rounded-2xl border p-5 shadow-sm " +
+                          (liquid >= 0
+                            ? "border-emerald-200 bg-emerald-50/80"
+                            : "border-amber-200 bg-amber-50/80")
+                        }
+                      >
+                        <p className="text-xs font-semibold uppercase tracking-wide text-secondary">
+                          {liquid >= 0 ? "Position (my money − debt)" : "Shortfall"}
+                        </p>
+                        <p
+                          className={
+                            "mt-2 text-2xl font-semibold " +
+                            (liquid >= 0 ? "text-emerald-800" : "text-amber-900")
+                          }
+                        >
+                          {money(Math.abs(liquid))}
+                        </p>
+                        <p className="mt-1 text-xs text-secondary">
+                          Cash + owed to me − creditors
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="overflow-x-auto rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-sm">
+                      <table className="w-full min-w-[32rem] text-left text-sm">
+                        <thead>
+                          <tr className="border-b border-[var(--border)] bg-[var(--background)] text-xs uppercase tracking-wide text-secondary">
+                            <th className="px-4 py-3 font-semibold">Metric</th>
+                            <th className="px-4 py-3 font-semibold text-right">Amount</th>
+                            <th className="px-4 py-3 font-semibold">Notes</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[var(--border)]">
+                          <tr>
+                            <td className="px-4 py-3 font-medium">Cash (accounts)</td>
+                            <td className="px-4 py-3 text-right font-semibold tabular-nums">
+                              {money(cash)}
+                            </td>
+                            <td className="px-4 py-3 text-secondary">Liquid accounts</td>
+                          </tr>
+                          <tr>
+                            <td className="px-4 py-3 font-medium">Owed to me</td>
+                            <td className="px-4 py-3 text-right font-semibold tabular-nums text-emerald-700">
+                              {money(receivable)}
+                            </td>
+                            <td className="px-4 py-3 text-secondary">Debtors balances</td>
+                          </tr>
+                          <tr className="bg-[var(--background)]/40">
+                            <td className="px-4 py-3 font-semibold">My money (cash + debtors)</td>
+                            <td className="px-4 py-3 text-right font-semibold tabular-nums">
+                              {money(myMoney)}
+                            </td>
+                            <td className="px-4 py-3 text-secondary">What is mine</td>
+                          </tr>
+                          <tr>
+                            <td className="px-4 py-3 font-medium">I owe (creditors)</td>
+                            <td className="px-4 py-3 text-right font-semibold tabular-nums text-red-700">
+                              {money(debt)}
+                            </td>
+                            <td className="px-4 py-3 text-secondary">Outstanding balances</td>
+                          </tr>
+                          <tr>
+                            <td className="px-4 py-3 font-medium">Position</td>
+                            <td
+                              className={
+                                "px-4 py-3 text-right font-semibold tabular-nums " +
+                                (liquid >= 0 ? "text-emerald-700" : "text-amber-800")
+                              }
+                            >
+                              {money(liquid)}
+                            </td>
+                            <td className="px-4 py-3 text-secondary">My money − debt</td>
+                          </tr>
+                          <tr>
+                            <td className="px-4 py-3 font-medium">Expenses this month</td>
+                            <td className="px-4 py-3 text-right font-semibold tabular-nums">
+                              {money(exp)}
+                            </td>
+                            <td className="px-4 py-3 text-secondary">Recorded spend</td>
+                          </tr>
+                          <tr>
+                            <td className="px-4 py-3 font-medium">Assets</td>
+                            <td className="px-4 py-3 text-right font-semibold tabular-nums">
+                              {money(assets)}
+                            </td>
+                            <td className="px-4 py-3 text-secondary">Property, vehicles, etc.</td>
+                          </tr>
+                          <tr className="bg-[var(--background)]/60">
+                            <td className="px-4 py-3 font-semibold">Approx. net worth</td>
+                            <td className="px-4 py-3 text-right font-semibold tabular-nums">
+                              {money(net)}
+                            </td>
+                            <td className="px-4 py-3 text-secondary">
+                              Cash + debtors + assets − creditors
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                      <button
+                        type="button"
+                        onClick={() => setTab("debtors")}
+                        className="rounded-xl border border-emerald-200 bg-white px-4 py-3 text-left text-sm hover:border-emerald-400"
+                      >
+                        <span className="font-semibold text-emerald-800">Debtors →</span>
+                        <span className="mt-1 block text-xs text-secondary">
+                          {money(receivable)} owed to me
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setTab("creditors")}
+                        className="rounded-xl border border-[var(--border)] bg-white px-4 py-3 text-left text-sm hover:border-primary/40"
+                      >
+                        <span className="font-semibold text-[var(--text)]">Creditors →</span>
+                        <span className="mt-1 block text-xs text-secondary">
+                          {money(debt)} outstanding
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setTab("expenses")}
+                        className="rounded-xl border border-[var(--border)] bg-white px-4 py-3 text-left text-sm hover:border-primary/40"
+                      >
+                        <span className="font-semibold text-[var(--text)]">Expenses →</span>
+                        <span className="mt-1 block text-xs text-secondary">
+                          {money(exp)} this month
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setTab("savings")}
+                        className="rounded-xl border border-[var(--border)] bg-white px-4 py-3 text-left text-sm hover:border-primary/40"
+                      >
+                        <span className="font-semibold text-[var(--text)]">Savings →</span>
+                        <span className="mt-1 block text-xs text-secondary">Goals & progress</span>
+                      </button>
+                    </div>
+                  </>
+                );
+              })()}
             </div>
           )}
 
@@ -719,32 +977,39 @@ export default function FinanceHubPage() {
                   No creditors yet. Click <strong>+ Add creditor</strong> to record the first debt.
                 </p>
               ) : creditors.length === 0 ? null : (
-                <ul className="space-y-2">
-                  {creditors.map((c) => (
-                    <li
-                      key={c.goalId}
-                      className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3"
-                    >
-                      <div>
-                        <p className="font-semibold text-[var(--text)]">{c.creditorName}</p>
-                        <p className="text-xs text-secondary">{c.goalTitle}</p>
-                        {"borrowReason" in c && (c as { borrowReason?: string }).borrowReason && (
-                          <p className="mt-1 text-xs text-secondary line-clamp-2">
-                            {(c as { borrowReason?: string }).borrowReason}
-                          </p>
-                        )}
-                        <p className="mt-1 text-sm">
-                          Balance{" "}
-                          <span className="font-semibold text-primary">
-                            {money(c.balance, c.currency)}
-                          </span>
-                          <span className="text-secondary">
-                            {" "}
-                            · paid {money(c.amountPaid, c.currency)} of{" "}
-                            {money(c.totalOwed, c.currency)}
-                          </span>
-                        </p>
-                        {(() => {
+                <div className="space-y-3">
+                  <div className="grid gap-2 sm:grid-cols-3">
+                    <div className="rounded-xl border border-[var(--border)] bg-[var(--background)] px-3 py-2">
+                      <p className="text-[0.65rem] uppercase text-secondary">Creditors</p>
+                      <p className="text-lg font-semibold">{creditors.length}</p>
+                    </div>
+                    <div className="rounded-xl border border-[var(--border)] bg-[var(--background)] px-3 py-2">
+                      <p className="text-[0.65rem] uppercase text-secondary">Total owed</p>
+                      <p className="text-lg font-semibold text-red-700">
+                        {money(creditors.reduce((s, c) => s + (c.totalOwed || 0), 0))}
+                      </p>
+                    </div>
+                    <div className="rounded-xl border border-[var(--border)] bg-[var(--background)] px-3 py-2">
+                      <p className="text-[0.65rem] uppercase text-secondary">Total balance</p>
+                      <p className="text-lg font-semibold text-primary">
+                        {money(creditors.reduce((s, c) => s + (c.balance || 0), 0))}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="-mx-1 overflow-x-auto rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-sm sm:mx-0">
+                    <table className="w-full min-w-[48rem] text-left text-sm">
+                      <thead>
+                        <tr className="border-b border-[var(--border)] bg-[var(--background)] text-xs uppercase tracking-wide text-secondary">
+                          <th className="px-3 py-3 font-semibold">Creditor</th>
+                          <th className="px-3 py-3 font-semibold text-right">Total owed</th>
+                          <th className="px-3 py-3 font-semibold text-right">Paid</th>
+                          <th className="px-3 py-3 font-semibold text-right">Balance</th>
+                          <th className="px-3 py-3 font-semibold">Progress</th>
+                          <th className="px-3 py-3 font-semibold">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[var(--border)]">
+                        {creditors.map((c) => {
                           const p = repaymentProgress({
                             totalOwed: c.totalOwed,
                             amountPaid: c.amountPaid,
@@ -753,57 +1018,87 @@ export default function FinanceHubPage() {
                             start: (c as { borrowedAt?: string }).borrowedAt,
                           });
                           return (
-                            <div className="mt-2 max-w-md space-y-1">
-                              <div className="flex justify-between text-[0.7rem] text-secondary">
-                                <span>{p.pctPaid}% repaid</span>
-                                <span>{p.remainingLabel}</span>
-                              </div>
-                              <div className="h-2 overflow-hidden rounded-full bg-[var(--border)]">
-                                <div
-                                  className="h-full rounded-full bg-primary transition-all"
-                                  style={{ width: `${p.pctPaid}%` }}
-                                />
-                              </div>
-                              {p.scheduleHint && (
-                                <p className="text-[0.65rem] text-muted">{p.scheduleHint}</p>
-                              )}
-                              {!p.onTrack && p.balance > 0 && c.deadline && (
-                                <p className="text-[0.65rem] text-amber-700">
-                                  Behind schedule vs time elapsed — consider a higher payment.
-                                </p>
-                              )}
-                            </div>
+                            <tr key={c.goalId} className="align-top hover:bg-[var(--background)]/50">
+                              <td className="px-3 py-3">
+                                <p className="font-semibold text-[var(--text)]">{c.creditorName}</p>
+                                <p className="text-xs text-secondary">{c.goalTitle}</p>
+                                {"borrowReason" in c &&
+                                  (c as { borrowReason?: string }).borrowReason && (
+                                    <p className="mt-0.5 line-clamp-1 text-xs text-secondary">
+                                      {(c as { borrowReason?: string }).borrowReason}
+                                    </p>
+                                  )}
+                              </td>
+                              <td className="px-3 py-3 text-right tabular-nums">
+                                {money(c.totalOwed, c.currency)}
+                              </td>
+                              <td className="px-3 py-3 text-right tabular-nums text-secondary">
+                                {money(c.amountPaid, c.currency)}
+                              </td>
+                              <td className="px-3 py-3 text-right font-semibold tabular-nums text-primary">
+                                {money(c.balance, c.currency)}
+                              </td>
+                              <td className="px-3 py-3 min-w-[8rem]">
+                                <div className="flex justify-between text-[0.65rem] text-secondary">
+                                  <span>{p.pctPaid}%</span>
+                                  <span>{p.remainingLabel}</span>
+                                </div>
+                                <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-[var(--border)]">
+                                  <div
+                                    className="h-full rounded-full bg-primary"
+                                    style={{ width: `${p.pctPaid}%` }}
+                                  />
+                                </div>
+                              </td>
+                              <td className="px-3 py-3">
+                                <div className="flex flex-wrap gap-1.5">
+                                  <button
+                                    type="button"
+                                    className="btn-primary rounded-full px-3 py-1 text-xs"
+                                    onClick={() => {
+                                      setPayGoalId(c.goalId);
+                                      setPayAmount(String(c.balance || ""));
+                                    }}
+                                  >
+                                    Pay
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="rounded-full border border-[var(--border)] px-2.5 py-1 text-xs"
+                                    onClick={() => fillFormFromCreditor(c as never)}
+                                  >
+                                    Edit
+                                  </button>
+                                  <Link
+                                    href={`/goals/${c.goalId}`}
+                                    className="rounded-full border border-[var(--border)] px-2.5 py-1 text-xs"
+                                  >
+                                    Goal
+                                  </Link>
+                                </div>
+                              </td>
+                            </tr>
                           );
-                        })()}
-                      </div>
-                      <div className="flex gap-2">
-                        <Link
-                          href={`/goals/${c.goalId}`}
-                          className="rounded-full border border-[var(--border)] px-3 py-1.5 text-xs font-medium"
-                        >
-                          Open goal
-                        </Link>
-                        <button
-                          type="button"
-                          className="rounded-full border border-[var(--border)] px-3 py-1.5 text-xs font-medium"
-                          onClick={() => fillFormFromCreditor(c as never)}
-                        >
-                          Edit
-                        </button>
-                        <button
-                          type="button"
-                          className="btn-primary rounded-full px-4 py-1.5 text-xs"
-                          onClick={() => {
-                            setPayGoalId(c.goalId);
-                            setPayAmount(String(c.balance || ""));
-                          }}
-                        >
-                          Pay
-                        </button>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
+                        })}
+                      </tbody>
+                      <tfoot>
+                        <tr className="border-t border-[var(--border)] bg-[var(--background)] font-semibold">
+                          <td className="px-3 py-3">Totals</td>
+                          <td className="px-3 py-3 text-right tabular-nums">
+                            {money(creditors.reduce((s, c) => s + (c.totalOwed || 0), 0))}
+                          </td>
+                          <td className="px-3 py-3 text-right tabular-nums">
+                            {money(creditors.reduce((s, c) => s + (c.amountPaid || 0), 0))}
+                          </td>
+                          <td className="px-3 py-3 text-right tabular-nums text-primary">
+                            {money(creditors.reduce((s, c) => s + (c.balance || 0), 0))}
+                          </td>
+                          <td colSpan={2} />
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                </div>
               )}
 
               {payGoalId && (
@@ -894,156 +1189,444 @@ export default function FinanceHubPage() {
             </div>
           )}
 
+          {tab === "debtors" && <DebtorsPanel />}
+
           {tab === "savings" && <SavingsPanel />}
 
           {tab === "budgets" && <BudgetsPanel />}
 
           {tab === "accounts" && (
             <div className="space-y-4">
-              <form onSubmit={addAccount} className="card grid gap-2 p-4 sm:grid-cols-4">
-                <input
-                  required
-                  placeholder="Account name"
-                  value={accName}
-                  onChange={(e) => setAccName(e.target.value)}
-                  className="input-field sm:col-span-2"
-                />
-                <select
-                  value={accKind}
-                  onChange={(e) => setAccKind(e.target.value)}
-                  className="input-field"
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <h2 className="text-lg font-semibold text-[var(--text)]">Money I have</h2>
+                  <p className="text-xs text-secondary sm:text-sm">
+                    Create each account once. Use <strong>Top up</strong> when money comes in —
+                    with date, source and purpose.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowAddAccount((v) => !v)}
+                  className="shrink-0 rounded-full bg-primary px-3 py-2 text-xs font-semibold text-white"
                 >
-                  {["MPESA", "BANK", "CASH", "OTHER"].map((k) => (
-                    <option key={k} value={k}>
-                      {k}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  type="number"
-                  step="0.01"
-                  placeholder="Balance"
-                  value={accBalance}
-                  onChange={(e) => setAccBalance(e.target.value)}
-                  className="input-field"
-                />
-                <button type="submit" disabled={busy} className="btn-primary sm:col-span-4">
-                  Add account
+                  {showAddAccount ? "Close" : "+ New account"}
                 </button>
-              </form>
-              <ul className="space-y-2">
-                {accounts.map((a) => (
-                  <li
-                    key={a.id}
-                    className="flex justify-between rounded-xl border border-[var(--border)] px-4 py-3"
-                  >
-                    <span>
-                      {a.name}{" "}
-                      <span className="text-xs text-secondary">({a.kind})</span>
-                    </span>
-                    <span className="font-semibold">{money(a.balance, a.currency)}</span>
-                  </li>
-                ))}
-              </ul>
+              </div>
+
+              {showAddAccount && (
+                <form
+                  onSubmit={async (e) => {
+                    await addAccount(e);
+                    setShowAddAccount(false);
+                    setAccName("");
+                    setAccBalance("");
+                  }}
+                  className="card grid gap-3 p-4 sm:grid-cols-2"
+                >
+                  <label className="text-sm font-medium sm:col-span-2">
+                    Account name
+                    <input
+                      required
+                      placeholder="e.g. M-Pesa, Equity Bank, Cash wallet"
+                      value={accName}
+                      onChange={(e) => setAccName(e.target.value)}
+                      className="input-field mt-1.5 w-full"
+                    />
+                  </label>
+                  <label className="text-sm font-medium">
+                    Opening balance (optional)
+                    <input
+                      type="number"
+                      step="0.01"
+                      min={0}
+                      placeholder="0"
+                      value={accBalance}
+                      onChange={(e) => setAccBalance(e.target.value)}
+                      className="input-field mt-1.5 w-full"
+                    />
+                  </label>
+                  <div className="flex items-end">
+                    <button type="submit" disabled={busy} className="btn-primary w-full disabled:opacity-50">
+                      Create account
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {topUpAccountId && (
+                <form
+                  onSubmit={submitTopUp}
+                  className="grid gap-3 rounded-2xl border border-emerald-200 bg-emerald-50/40 p-4 sm:grid-cols-2"
+                >
+                  <p className="text-sm font-semibold sm:col-span-2">
+                    Top up —{" "}
+                    {accounts.find((a) => a.id === topUpAccountId)?.name || "account"}
+                  </p>
+                  <label className="text-sm font-medium">
+                    Amount *
+                    <input
+                      required
+                      type="number"
+                      min={0.01}
+                      step="any"
+                      value={topUpAmount}
+                      onChange={(e) => setTopUpAmount(e.target.value)}
+                      className="input-field mt-1.5 w-full"
+                    />
+                  </label>
+                  <label className="text-sm font-medium">
+                    Date received
+                    <input
+                      type="date"
+                      value={topUpDate}
+                      onChange={(e) => setTopUpDate(e.target.value)}
+                      className="input-field mt-1.5 w-full"
+                    />
+                  </label>
+                  <label className="text-sm font-medium">
+                    Where from (source)
+                    <input
+                      value={topUpSource}
+                      onChange={(e) => setTopUpSource(e.target.value)}
+                      placeholder="Salary, client, gift, transfer…"
+                      className="input-field mt-1.5 w-full"
+                    />
+                  </label>
+                  <label className="text-sm font-medium">
+                    Purpose
+                    <input
+                      value={topUpPurpose}
+                      onChange={(e) => setTopUpPurpose(e.target.value)}
+                      placeholder="Living costs, savings, project…"
+                      className="input-field mt-1.5 w-full"
+                    />
+                  </label>
+                  <div className="flex flex-wrap gap-2 sm:col-span-2">
+                    <button type="submit" disabled={busy} className="btn-primary disabled:opacity-50">
+                      {busy ? "Saving…" : "Confirm top up"}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      onClick={() => setTopUpAccountId(null)}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {editAccountId && (
+                <form
+                  onSubmit={saveEditAccount}
+                  className="grid gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 sm:grid-cols-2"
+                >
+                  <p className="text-sm font-semibold sm:col-span-2">Edit account</p>
+                  <label className="text-sm font-medium">
+                    Name
+                    <input
+                      required
+                      value={editAccName}
+                      onChange={(e) => setEditAccName(e.target.value)}
+                      className="input-field mt-1.5 w-full"
+                    />
+                  </label>
+                  <label className="text-sm font-medium">
+                    Type
+                    <select
+                      value={editAccKind}
+                      onChange={(e) => setEditAccKind(e.target.value)}
+                      className="input-field mt-1.5 w-full"
+                    >
+                      {["CASH", "BANK", "MPESA", "SACCO", "OTHER"].map((k) => (
+                        <option key={k} value={k}>
+                          {k}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="text-sm font-medium sm:col-span-2">
+                    Notes
+                    <input
+                      value={editAccNotes}
+                      onChange={(e) => setEditAccNotes(e.target.value)}
+                      className="input-field mt-1.5 w-full"
+                    />
+                  </label>
+                  <div className="flex flex-wrap gap-2 sm:col-span-2">
+                    <button type="submit" disabled={busy} className="btn-primary disabled:opacity-50">
+                      Save changes
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      onClick={() => setEditAccountId(null)}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {accounts.length === 0 && !showAddAccount ? (
+                <p className="text-sm text-secondary">
+                  No accounts yet. Create M-Pesa, bank or cash once, then top up when money arrives.
+                </p>
+              ) : accounts.length === 0 ? null : (
+                <div className="-mx-1 overflow-x-auto rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-sm sm:mx-0">
+                  <table className="w-full min-w-[36rem] text-left text-sm">
+                    <thead>
+                      <tr className="border-b border-[var(--border)] bg-[var(--background)] text-xs uppercase text-secondary">
+                        <th className="px-4 py-3 font-semibold">Account</th>
+                        <th className="px-4 py-3 font-semibold">Type</th>
+                        <th className="px-4 py-3 font-semibold text-right">Balance</th>
+                        <th className="px-4 py-3 font-semibold">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[var(--border)]">
+                      {accounts.map((a) => (
+                        <tr key={a.id} className="hover:bg-[var(--background)]/50">
+                          <td className="px-4 py-3 font-medium">{a.name}</td>
+                          <td className="px-4 py-3 text-secondary">{a.kind}</td>
+                          <td className="px-4 py-3 text-right font-semibold tabular-nums">
+                            {money(a.balance, a.currency)}
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex flex-wrap gap-1.5">
+                              <button
+                                type="button"
+                                className="rounded-full bg-primary px-3 py-1 text-xs font-semibold text-white"
+                                onClick={() => {
+                                  setTopUpAccountId(a.id);
+                                  setTopUpDate(new Date().toISOString().slice(0, 10));
+                                  setEditAccountId(null);
+                                }}
+                              >
+                                Top up
+                              </button>
+                              <button
+                                type="button"
+                                className="rounded-full border border-[var(--border)] px-2.5 py-1 text-xs"
+                                onClick={() => {
+                                  setEditAccountId(a.id);
+                                  setEditAccName(a.name);
+                                  setEditAccKind(a.kind || "CASH");
+                                  setEditAccNotes("");
+                                  setTopUpAccountId(null);
+                                }}
+                              >
+                                Edit
+                              </button>
+                              <button
+                                type="button"
+                                className="rounded-full border border-red-200 px-2.5 py-1 text-xs text-red-700"
+                                onClick={() => void deleteAccount(a.id, a.name)}
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot>
+                      <tr className="border-t border-[var(--border)] bg-[var(--background)] font-semibold">
+                        <td className="px-4 py-3" colSpan={2}>
+                          Total cash
+                        </td>
+                        <td className="px-4 py-3 text-right tabular-nums">
+                          {money(accounts.reduce((s, a) => s + (a.balance || 0), 0))}
+                        </td>
+                        <td />
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              )}
             </div>
           )}
 
           {tab === "expenses" && (
             <div className="space-y-4">
-              <form onSubmit={addExpense} className="card grid gap-2 p-4 sm:grid-cols-2">
-                <input
-                  required
-                  type="number"
-                  step="0.01"
-                  min={0.01}
-                  placeholder="Amount"
-                  value={expAmount}
-                  onChange={(e) => setExpAmount(e.target.value)}
-                  className="input-field"
-                />
-                <select
-                  required
-                  value={expAccountId}
-                  onChange={(e) => setExpAccountId(e.target.value)}
-                  className="input-field"
-                >
-                  {accounts.map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.name} ({money(a.balance, a.currency)})
-                    </option>
-                  ))}
-                </select>
-                <div className="sm:col-span-2">
-                  <ExpenseCategoryPicker
-                    value={expCategory}
-                    onChange={setExpCategory}
-                  />
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <h2 className="text-lg font-semibold text-[var(--text)]">Expenses</h2>
+                  <p className="text-xs text-secondary">Track spending by category and account.</p>
                 </div>
-                <input
-                  placeholder="Description"
-                  value={expDesc}
-                  onChange={(e) => setExpDesc(e.target.value)}
-                  className="input-field"
-                />
-                <input
-                  placeholder="If over balance: where did money come from?"
-                  value={expFunding}
-                  onChange={(e) => setExpFunding(e.target.value)}
-                  className="input-field sm:col-span-2"
-                />
-                <button type="submit" disabled={busy || !accounts.length} className="btn-primary sm:col-span-2">
-                  Record expense
+                <button
+                  type="button"
+                  onClick={() => setShowAddExpense((v) => !v)}
+                  className="shrink-0 rounded-full bg-primary px-3 py-2 text-xs font-semibold text-white"
+                >
+                  {showAddExpense ? "Close" : "+ Record expense"}
                 </button>
-              </form>
-              <ul className="space-y-2">
-                {expenses.map((x) => (
-                  <li
-                    key={x.id}
-                    className="flex justify-between gap-2 rounded-xl border border-[var(--border)] px-4 py-2 text-sm"
+              </div>
+              {showAddExpense && (
+                <form onSubmit={async (e) => { await addExpense(e); setShowAddExpense(false); }} className="card grid gap-2 p-4 sm:grid-cols-2">
+                  <input
+                    required
+                    type="number"
+                    step="0.01"
+                    min={0.01}
+                    placeholder="Amount"
+                    value={expAmount}
+                    onChange={(e) => setExpAmount(e.target.value)}
+                    className="input-field"
+                  />
+                  <select
+                    required
+                    value={expAccountId}
+                    onChange={(e) => setExpAccountId(e.target.value)}
+                    className="input-field"
                   >
-                    <span>
-                      {x.description || x.category || "Expense"} · {x.moneyAccount.name}
-                    </span>
-                    <span className="font-medium">{money(x.amount)}</span>
-                  </li>
-                ))}
-              </ul>
+                    {accounts.map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.name} ({money(a.balance, a.currency)})
+                      </option>
+                    ))}
+                  </select>
+                  <div className="sm:col-span-2">
+                    <ExpenseCategoryPicker
+                      value={expCategory}
+                      onChange={setExpCategory}
+                    />
+                  </div>
+                  <input
+                    placeholder="Description"
+                    value={expDesc}
+                    onChange={(e) => setExpDesc(e.target.value)}
+                    className="input-field"
+                  />
+                  <input
+                    placeholder="If over balance: where did money come from?"
+                    value={expFunding}
+                    onChange={(e) => setExpFunding(e.target.value)}
+                    className="input-field"
+                  />
+                  <button type="submit" disabled={busy || !accounts.length} className="btn-primary sm:col-span-2">
+                    Save expense
+                  </button>
+                </form>
+              )}
+              {expenses.length === 0 && !showAddExpense ? (
+                <p className="text-sm text-secondary">
+                  No expenses yet. Click <strong>+ Record expense</strong> to add one.
+                </p>
+              ) : expenses.length === 0 ? null : (
+                <div className="-mx-1 overflow-x-auto rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-sm sm:mx-0">
+                  <table className="w-full min-w-[36rem] text-left text-sm">
+                    <thead>
+                      <tr className="border-b border-[var(--border)] bg-[var(--background)] text-xs uppercase text-secondary">
+                        <th className="px-4 py-3 font-semibold">Description</th>
+                        <th className="px-4 py-3 font-semibold">Category</th>
+                        <th className="px-4 py-3 font-semibold">Account</th>
+                        <th className="px-4 py-3 font-semibold text-right">Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[var(--border)]">
+                      {expenses.map((x) => (
+                        <tr key={x.id} className="hover:bg-[var(--background)]/50">
+                          <td className="px-4 py-3">{x.description || "—"}</td>
+                          <td className="px-4 py-3 text-secondary">{x.category || "—"}</td>
+                          <td className="px-4 py-3 text-secondary">{x.moneyAccount.name}</td>
+                          <td className="px-4 py-3 text-right font-semibold tabular-nums">
+                            {money(x.amount)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot>
+                      <tr className="border-t border-[var(--border)] bg-[var(--background)] font-semibold">
+                        <td className="px-4 py-3" colSpan={3}>
+                          Total (shown)
+                        </td>
+                        <td className="px-4 py-3 text-right tabular-nums">
+                          {money(expenses.reduce((s, x) => s + (x.amount || 0), 0))}
+                        </td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              )}
             </div>
           )}
 
           {tab === "assets" && (
             <div className="space-y-4">
-              <form onSubmit={addAsset} className="card grid gap-2 p-4 sm:grid-cols-3">
-                <input
-                  required
-                  placeholder="Asset name"
-                  value={assetName}
-                  onChange={(e) => setAssetName(e.target.value)}
-                  className="input-field sm:col-span-2"
-                />
-                <input
-                  type="number"
-                  step="0.01"
-                  placeholder="Value"
-                  value={assetValue}
-                  onChange={(e) => setAssetValue(e.target.value)}
-                  className="input-field"
-                />
-                <button type="submit" disabled={busy} className="btn-primary sm:col-span-3">
-                  Add asset
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <h2 className="text-lg font-semibold text-[var(--text)]">Assets</h2>
+                  <p className="text-xs text-secondary">Property, vehicles, equipment and other value.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowAddAsset((v) => !v)}
+                  className="shrink-0 rounded-full bg-primary px-3 py-2 text-xs font-semibold text-white"
+                >
+                  {showAddAsset ? "Close" : "+ Add asset"}
                 </button>
-              </form>
-              <ul className="space-y-2">
-                {assets.map((a) => (
-                  <li
-                    key={a.id}
-                    className="flex justify-between rounded-xl border border-[var(--border)] px-4 py-3"
-                  >
-                    <span>{a.name}</span>
-                    <span className="font-semibold">{money(a.value, a.currency)}</span>
-                  </li>
-                ))}
-              </ul>
+              </div>
+              {showAddAsset && (
+                <form onSubmit={async (e) => { await addAsset(e); setShowAddAsset(false); }} className="card grid gap-2 p-4 sm:grid-cols-3">
+                  <input
+                    required
+                    placeholder="Asset name"
+                    value={assetName}
+                    onChange={(e) => setAssetName(e.target.value)}
+                    className="input-field sm:col-span-2"
+                  />
+                  <input
+                    type="number"
+                    step="0.01"
+                    placeholder="Value"
+                    value={assetValue}
+                    onChange={(e) => setAssetValue(e.target.value)}
+                    className="input-field"
+                  />
+                  <button type="submit" disabled={busy} className="btn-primary sm:col-span-3">
+                    Save asset
+                  </button>
+                </form>
+              )}
+              {assets.length === 0 && !showAddAsset ? (
+                <p className="text-sm text-secondary">
+                  No assets yet. Click <strong>+ Add asset</strong> to add one.
+                </p>
+              ) : assets.length === 0 ? null : (
+                <div className="-mx-1 overflow-x-auto rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-sm sm:mx-0">
+                  <table className="w-full min-w-[28rem] text-left text-sm">
+                    <thead>
+                      <tr className="border-b border-[var(--border)] bg-[var(--background)] text-xs uppercase text-secondary">
+                        <th className="px-4 py-3 font-semibold">Asset</th>
+                        <th className="px-4 py-3 font-semibold">Category</th>
+                        <th className="px-4 py-3 font-semibold text-right">Value</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[var(--border)]">
+                      {assets.map((a) => (
+                        <tr key={a.id} className="hover:bg-[var(--background)]/50">
+                          <td className="px-4 py-3 font-medium">{a.name}</td>
+                          <td className="px-4 py-3 text-secondary">{a.category || "—"}</td>
+                          <td className="px-4 py-3 text-right font-semibold tabular-nums">
+                            {money(a.value, a.currency)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot>
+                      <tr className="border-t border-[var(--border)] bg-[var(--background)] font-semibold">
+                        <td className="px-4 py-3" colSpan={2}>
+                          Total assets
+                        </td>
+                        <td className="px-4 py-3 text-right tabular-nums">
+                          {money(assets.reduce((s, a) => s + (a.value || 0), 0))}
+                        </td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              )}
             </div>
           )}
         </main>

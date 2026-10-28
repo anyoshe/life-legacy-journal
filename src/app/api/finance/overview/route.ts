@@ -21,9 +21,26 @@ export async function GET() {
     }),
   ]);
 
+  let totalReceivable = 0;
+  let debtorsCount = 0;
+  try {
+    const debtors = await prisma.debtor.findMany({
+      where: { userId: user.id, balance: { gt: 0 } },
+      select: { balance: true },
+    });
+    totalReceivable = debtors.reduce((s, d) => s + (d.balance || 0), 0);
+    debtorsCount = debtors.length;
+  } catch {
+    /* debtors table may not exist yet */
+  }
+
   const moneyAvailable = accounts.reduce((s, a) => s + a.balance, 0);
   const assetsTotal = assets.reduce((s, a) => s + a.value, 0);
   const totalDebt = debts.reduce((s, d) => s + (d.balance ?? 0), 0);
+
+  // Cash + money owed to you − what you owe (+ assets in net worth)
+  const liquidPosition = moneyAvailable + totalReceivable - totalDebt;
+
   const monthStart = new Date();
   monthStart.setDate(1);
   monthStart.setHours(0, 0, 0, 0);
@@ -34,9 +51,13 @@ export async function GET() {
 
   return NextResponse.json({
     moneyAvailable,
+    totalReceivable,
+    debtorsCount,
     assetsTotal,
     totalDebt,
-    netWorthApprox: moneyAvailable + assetsTotal - totalDebt,
+    /** Cash + receivables − payables */
+    liquidPosition,
+    netWorthApprox: moneyAvailable + totalReceivable + assetsTotal - totalDebt,
     expensesThisMonth: expensesThisMonth._sum.amount ?? 0,
     accounts,
     assets,
