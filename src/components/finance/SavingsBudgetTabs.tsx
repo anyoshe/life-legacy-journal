@@ -38,7 +38,22 @@ type BudgetRow = {
 };
 
 export function SavingsPanel() {
-  const [rows, setRows] = useState<SavingsRow[]>([]);
+  type Row = {
+    goalId: string;
+    title: string;
+    purpose: string | null;
+    purposeLabel: string | null;
+    targetAmount: number;
+    savedAmount: number;
+    balance: number;
+    currency: string;
+    savingsDestination: string | null;
+  };
+
+  type Account = { id: string; name: string; balance: number; currency: string };
+
+  const [rows, setRows] = useState<Row[]>([]);
+  const [accounts, setAccounts] = useState<Account[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [show, setShow] = useState(false);
@@ -46,18 +61,31 @@ export function SavingsPanel() {
   const [purposeLabel, setPurposeLabel] = useState("");
   const [target, setTarget] = useState("");
   const [dest, setDest] = useState("");
-  const [deadline, setDeadline] = useState("");
   const [currency, setCurrency] = useState("KES");
+
+  const [contributeGoalId, setContributeGoalId] = useState<string | null>(null);
+  const [contribAmount, setContribAmount] = useState("");
+  const [contribAccountId, setContribAccountId] = useState("");
+  const [contribDate, setContribDate] = useState("");
+  const [contribNote, setContribNote] = useState("");
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
-      const res = await fetch("/api/finance/savings");
-      const data = await res.json();
-      setRows(data.savings || []);
+      const [sRes, aRes] = await Promise.all([
+        fetch("/api/finance/savings"),
+        fetch("/api/finance/accounts"),
+      ]);
+      const sData = await sRes.json();
+      const aData = await aRes.json();
+      setRows(sData.savings || []);
+      const accs = aData.accounts || [];
+      setAccounts(accs);
+      if (!contribAccountId && accs[0]) setContribAccountId(accs[0].id);
     } catch {
       setError("Could not load savings.");
     }
-  }, []);
+  }, [contribAccountId]);
 
   useEffect(() => {
     void load();
@@ -77,7 +105,6 @@ export function SavingsPanel() {
           targetAmount: Number(target),
           currency,
           savingsDestination: dest || undefined,
-          deadline: deadline || undefined,
         }),
       });
       const data = await res.json();
@@ -94,28 +121,72 @@ export function SavingsPanel() {
     }
   }
 
+  async function onContribute(e: FormEvent) {
+    e.preventDefault();
+    if (!contributeGoalId) return;
+    setBusy(true);
+    setError(null);
+    setSuccessMsg(null);
+    try {
+      const res = await fetch("/api/finance/savings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "contribute",
+          goalId: contributeGoalId,
+          moneyAccountId: contribAccountId,
+          amount: Number(contribAmount),
+          occurredAt: contribDate || null,
+          note: contribNote || null,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Contribution failed.");
+      setSuccessMsg(
+        data.message ||
+          "Contribution saved as a transfer — not an expense. Money is still yours.",
+      );
+      setContributeGoalId(null);
+      setContribAmount("");
+      setContribNote("");
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Contribution failed.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h2 className="text-lg font-semibold text-[var(--text)]">Savings goals</h2>
-          <p className="text-xs text-secondary">
-            Emergency fund, school fees, and other targets — tracked under Finance.
+          <p className="text-xs text-secondary sm:text-sm">
+            Contribute from an account as a <strong>transfer</strong> — not an expense.
+            Cash goes down; savings progress goes up; net worth stays the same.
           </p>
         </div>
         <button
           type="button"
           onClick={() => setShow((v) => !v)}
-          className="rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-white"
+          className="shrink-0 rounded-full bg-primary px-3 py-2 text-xs font-semibold text-white"
         >
           {show ? "Close" : "+ New savings goal"}
         </button>
       </div>
+
       {error && (
         <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
           {error}
         </p>
       )}
+      {successMsg && (
+        <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
+          {successMsg}
+        </p>
+      )}
+
       {show && (
         <form
           onSubmit={onSubmit}
@@ -159,38 +230,103 @@ export function SavingsPanel() {
             />
           </label>
           <label className="text-sm font-medium">
-            Currency
-            <input
-              value={currency}
-              onChange={(e) => setCurrency(e.target.value.toUpperCase())}
-              className="input-field mt-1.5 w-full"
-            />
-          </label>
-          <label className="text-sm font-medium">
-            Where I save
+            Where you keep it
             <input
               value={dest}
               onChange={(e) => setDest(e.target.value)}
-              placeholder="Bank, M-Pesa, SACCO…"
-              className="input-field mt-1.5 w-full"
-            />
-          </label>
-          <label className="text-sm font-medium">
-            Target date
-            <input
-              type="date"
-              value={deadline}
-              onChange={(e) => setDeadline(e.target.value)}
+              placeholder="Bank, SACCO, jar…"
               className="input-field mt-1.5 w-full"
             />
           </label>
           <div className="sm:col-span-2">
             <button type="submit" disabled={busy} className="btn-primary disabled:opacity-50">
-              {busy ? "Saving…" : "Create savings goal"}
+              Create savings goal
             </button>
           </div>
         </form>
       )}
+
+      {contributeGoalId && (
+        <form
+          onSubmit={onContribute}
+          className="grid gap-3 rounded-2xl border border-emerald-200 bg-emerald-50/50 p-4 sm:grid-cols-2"
+        >
+          <p className="text-sm font-semibold sm:col-span-2">
+            Contribute to{" "}
+            {rows.find((r) => r.goalId === contributeGoalId)?.title || "savings"}
+          </p>
+          <p className="text-xs text-secondary sm:col-span-2">
+            This debits the selected account and increases savings progress. It does{" "}
+            <strong>not</strong> create an expense.
+          </p>
+          <label className="text-sm font-medium">
+            Amount *
+            <input
+              required
+              type="number"
+              min={0.01}
+              step="any"
+              value={contribAmount}
+              onChange={(e) => setContribAmount(e.target.value)}
+              className="input-field mt-1.5 w-full"
+            />
+          </label>
+          <label className="text-sm font-medium">
+            From account *
+            <select
+              required
+              value={contribAccountId}
+              onChange={(e) => setContribAccountId(e.target.value)}
+              className="input-field mt-1.5 w-full"
+            >
+              {accounts.length === 0 ? (
+                <option value="">No accounts — top up first</option>
+              ) : (
+                accounts.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.name} ({a.balance.toLocaleString()} {a.currency})
+                  </option>
+                ))
+              )}
+            </select>
+          </label>
+          <label className="text-sm font-medium">
+            Date
+            <input
+              type="date"
+              value={contribDate}
+              onChange={(e) => setContribDate(e.target.value)}
+              className="input-field mt-1.5 w-full"
+            />
+          </label>
+          <label className="text-sm font-medium">
+            Note
+            <input
+              value={contribNote}
+              onChange={(e) => setContribNote(e.target.value)}
+              className="input-field mt-1.5 w-full"
+              placeholder="Optional"
+            />
+          </label>
+          <div className="flex flex-wrap gap-2 sm:col-span-2">
+            <button
+              type="submit"
+              disabled={busy || !accounts.length}
+              className="btn-primary disabled:opacity-50"
+            >
+              {busy ? "Saving…" : "Confirm contribution"}
+            </button>
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => setContributeGoalId(null)}
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      )}
+
       {rows.length === 0 ? (
         <p className="text-sm text-secondary">
           No savings goals yet. Add emergency fund, fees, or any custom target.
@@ -215,16 +351,61 @@ export function SavingsPanel() {
               </p>
             </div>
           </div>
-          <div className="overflow-x-auto rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-sm">
-            <table className="w-full min-w-[40rem] text-left text-sm">
+
+          {/* Mobile cards */}
+          <ul className="space-y-3 md:hidden">
+            {rows.map((r) => {
+              const pct =
+                r.targetAmount > 0
+                  ? Math.min(100, Math.round((r.savedAmount / r.targetAmount) * 100))
+                  : 0;
+              return (
+                <li
+                  key={r.goalId}
+                  className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-sm"
+                >
+                  <p className="font-semibold text-[var(--text)]">{r.title}</p>
+                  <p className="text-xs text-secondary">
+                    {r.purposeLabel || r.purpose || "Savings"}
+                    {r.savingsDestination ? ` · ${r.savingsDestination}` : ""}
+                  </p>
+                  <p className="mt-2 text-sm">
+                    {money(r.savedAmount, r.currency)} / {money(r.targetAmount, r.currency)}
+                  </p>
+                  <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[var(--border)]">
+                    <div
+                      className="h-full rounded-full bg-[var(--secondary)]"
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    className="btn-primary mt-3 w-full rounded-full py-2 text-xs"
+                    onClick={() => {
+                      setContributeGoalId(r.goalId);
+                      setContribAmount("");
+                      setContribDate(new Date().toISOString().slice(0, 10));
+                      setSuccessMsg(null);
+                    }}
+                  >
+                    Contribute
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+
+          {/* Desktop table */}
+          <div className="hidden overflow-x-auto rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-sm md:block">
+            <table className="w-full min-w-[44rem] text-left text-sm">
               <thead>
                 <tr className="border-b border-[var(--border)] bg-[var(--background)] text-xs uppercase text-secondary">
                   <th className="px-4 py-3 font-semibold">Goal</th>
-                  <th className="px-4 py-3 font-semibold">Purpose</th>
                   <th className="px-4 py-3 font-semibold text-right">Saved</th>
                   <th className="px-4 py-3 font-semibold text-right">Target</th>
                   <th className="px-4 py-3 font-semibold text-right">Remaining</th>
                   <th className="px-4 py-3 font-semibold">Progress</th>
+                  <th className="px-4 py-3 font-semibold">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--border)]">
@@ -235,14 +416,13 @@ export function SavingsPanel() {
                       : 0;
                   return (
                     <tr key={r.goalId} className="hover:bg-[var(--background)]/50">
-                      <td className="px-4 py-3 font-medium">{r.title}</td>
-                      <td className="px-4 py-3 text-secondary">
-                        {r.purposeLabel || r.purpose || "—"}
-                        {r.savingsDestination ? (
-                          <span className="block text-xs">{r.savingsDestination}</span>
-                        ) : null}
+                      <td className="px-4 py-3">
+                        <p className="font-medium">{r.title}</p>
+                        <p className="text-xs text-secondary">
+                          {r.purposeLabel || r.purpose || "—"}
+                        </p>
                       </td>
-                      <td className="px-4 py-3 text-right tabular-nums">
+                      <td className="px-4 py-3 text-right tabular-nums text-emerald-700">
                         {money(r.savedAmount, r.currency)}
                       </td>
                       <td className="px-4 py-3 text-right tabular-nums">
@@ -259,6 +439,20 @@ export function SavingsPanel() {
                             style={{ width: `${pct}%` }}
                           />
                         </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <button
+                          type="button"
+                          className="rounded-full bg-primary px-3 py-1 text-xs font-semibold text-white"
+                          onClick={() => {
+                            setContributeGoalId(r.goalId);
+                            setContribAmount("");
+                            setContribDate(new Date().toISOString().slice(0, 10));
+                            setSuccessMsg(null);
+                          }}
+                        >
+                          Contribute
+                        </button>
                       </td>
                     </tr>
                   );
